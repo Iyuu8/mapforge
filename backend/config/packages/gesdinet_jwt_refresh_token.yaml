@@ -1,0 +1,11 @@
+gesdinet_jwt_refresh_token:
+    # 6 months in seconds (30 * 24 * 60 * 60 * 6= 15552000)
+    ttl: 15552000
+    # every time a user refreshes their token, reset the 6 months clock
+    # This keeps active users logged in indefinitely without needing a password.
+    ttl_update: true
+    single_use: true 
+    refresh_token_class: App\Entity\RefreshToken
+
+    cookie:
+        enabled: true
