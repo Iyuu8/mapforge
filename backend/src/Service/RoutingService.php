@@ -1,7 +1,6 @@
 <?php
 namespace App\Service;
 
-use App\Entity\Building;
 use App\Entity\MapEdge;
 use App\Entity\MapNode;
 use Doctrine\ORM\EntityManagerInterface;
@@ -42,11 +41,11 @@ class RoutingService
             }
         }
 
-        $adjacency = $this->buildAdjacencyList(
-            $source->getFloor()->getBuilding(),
-            $accessibleOnly,
-            $includeUnpublished
-        );
+        // FIX: no longer scoped to the source node's building. The graph must be
+        // built from EVERY edge that's visible under the current permission level,
+        // otherwise a walk that crosses into a second building can't continue past
+        // it (that building's own outgoing edges were previously excluded).
+        $adjacency = $this->buildAdjacencyList($accessibleOnly, $includeUnpublished);
 
         $distances = [$source->getId() => 0.0];
         $predecessors = [];
@@ -100,18 +99,13 @@ class RoutingService
     }
 
     /**
-     * Builds the adjacency list used by Dijkstra.
+     * Builds the adjacency list used by Dijkstra ( the most basic variation chosen deliberately ).
      *
-     * NOTE ON SCOPE: this still primarily scopes edges by the SOURCE node's
-     * building (ff.building = :building), matching the existing behaviour /
-     * known limitation flagged earlier around cross-building routing. What
-     * changes here is purely the PUBLISHED-status filtering: when
-     * $includeUnpublished is false, both endpoints of every edge must belong
-     * to a PUBLISHED building or the edge is dropped from the graph, so it
-     * can never be used as a hop - including cross-building edges that would
-     * otherwise sneak a public user into a draft building's node.
+     * Scope: the FULL edge graph (across every building/organization), filtered only
+     * by accessibility and publish status. 
+     * the following implementation is simple, but it is still and correct, sufficient for a hackathon scale
      */
-    private function buildAdjacencyList(Building $building, bool $accessibleOnly, bool $includeUnpublished): array
+    private function buildAdjacencyList(bool $accessibleOnly, bool $includeUnpublished): array
     {
         $qb = $this->em->getRepository(MapEdge::class)->createQueryBuilder('e')
             ->join('e.fromNode', 'fn')
@@ -119,9 +113,7 @@ class RoutingService
             ->join('ff.building', 'fb')
             ->join('e.toNode', 'tn')
             ->join('tn.floor', 'tf')
-            ->join('tf.building', 'tb')
-            ->where('fb = :building')
-            ->setParameter('building', $building);
+            ->join('tf.building', 'tb');
 
         if ($accessibleOnly) {
             $qb->andWhere('e.accessible = true');

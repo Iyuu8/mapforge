@@ -14,6 +14,7 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
+use Symfony\Component\HttpFoundation\Response;
 
 #[Route('/api')]
 class BuildingController extends AbstractController
@@ -53,6 +54,11 @@ class BuildingController extends AbstractController
             );
         }
 
+        if( strtoupper($payload['name'])=='DEFAULT CAMPUS'){ 
+            $campusExisting = $this->em->getRepository(Building::class)->findOneBy(['name'=>'Default Campus', 'organization'=>$organization]); 
+            if($campusExisting) return $this->json($this->errorFormatter->formatError('an organization can contain one single default campus','CONFLICT',Response::HTTP_CONFLICT),Response::HTTP_CONFLICT);
+        }
+
         $validColor = false;
         if(!empty($payload['color'])) $validColor = preg_match('/^#[a-fA-F0-9]{6}$/', $payload['color']);
 
@@ -73,7 +79,6 @@ class BuildingController extends AbstractController
      * Public/user: only if status === PUBLISHED, otherwise 404 (don't leak existence of drafts).
      */
     #[Route('/buildings/{id}', name:'get_building_by_id',methods: ['GET'], requirements: ['id' => '\d+'])]
-    #[IsGranted('ROLE_USER')]
     public function getOne(int $id): JsonResponse
     {
         $building = $this->buildingService->findBuilding($id);
@@ -163,7 +168,6 @@ class BuildingController extends AbstractController
      * created in the project; move if you'd prefer a separate controller.
      */
     #[Route('/map/{id}', name:'get_map',methods: ['GET'], requirements: ['id' => '\d+'])]
-    #[IsGranted('ROLE_USER')]
     public function getMap(int $id, Request $request): JsonResponse
     {
         $type = $request->query->get('type', 'building');
@@ -194,6 +198,11 @@ class BuildingController extends AbstractController
                     'id' => $b->getId(),
                     'name' => $b->getName(),
                     'status' => $b->getStatus(),
+                    'color'=> $b->getColor(),
+                    'description'=>$b->getDescription(),
+                    'geometry'=>$b->getGeometry(),
+                    'createdAt'=>$b->getCreatedAt(),
+                    'updatedAt'=>$b->getUpdatedAt()
                 ], $buildings),
                 'floors' => $floors,
             ]);
@@ -216,11 +225,46 @@ class BuildingController extends AbstractController
         return new JsonResponse([
             'building' => [
                 'id' => $building->getId(),
+                'organizationId'=>$building->getOrganization()->getId(),
                 'name' => $building->getName(),
                 'status' => $building->getStatus(),
+                'color'=> $building->getColor(),
+                'description'=>$building->getDescription(),
+                'geometry'=>$building->getGeometry(),
+                'createdAt'=>$building->getCreatedAt(),
+                'updatedAt'=>$building->getUpdatedAt()
             ],
             'floors' => $floors,
         ]);
+    }
+
+    #[Route('/buildings/{id}',name:'delete_building',methods:['DELETE'])]
+    #[IsGranted('ROLE_ADMIN')]
+    public function deleteBuilding(int $id) : JsonResponse {
+        $building = $this->buildingService->findBuilding($id);
+        if(!$building) return new JsonResponse(
+            $this->errorFormatter->formatError('Building not found.', 'NOT_FOUND', 404),
+            404
+        );
+
+        try{
+
+            $this->em->remove($building);
+            $this->em->flush();
+        }catch(\Exception $e) {
+            return new JsonResponse(
+                $this->errorFormatter->formatError(
+                    'Unable to delete building; it may still have dependent floors.',
+                    'CONFLICT',
+                    409
+                ),
+                409
+            );
+        }
+
+        return new JsonResponse(null, 204);
+
+
     }
 
     // --- helpers -----------------------------------------------------------
@@ -245,6 +289,8 @@ class BuildingController extends AbstractController
      */
     private function serializeFloorWithGraph(Floor $floor): array
     {
+        $isAdmin = $this->isGranted('ROLE_ADMIN');
+
         $nodes = [];
         $nodeIds = [];
         foreach ($floor->getMapNodes() as $node) {
@@ -256,6 +302,7 @@ class BuildingController extends AbstractController
                 'type' => $node->getType(),
                 'xCoord' => $node->getXCoord(),
                 'yCoord' => $node->getYCoord(),
+                'geometry'=>$node->getGeometry(),
                 'metadata' => $node->getMetadata(),
             ];
         }
@@ -264,13 +311,26 @@ class BuildingController extends AbstractController
         $edges = [];
         if (!empty($nodeIds)) {
             $qb = $this->em->createQueryBuilder();
-            $edgeEntities = $qb->select('e')
+            $edgeQb = $qb->select('e')
                 ->from(\App\Entity\MapEdge::class, 'e')
+                ->join('e.fromNode', 'fn')->join('fn.floor', 'ff')->join('ff.building', 'fb')
+                ->join('e.toNode', 'tn')->join('tn.floor', 'tf')->join('tf.building', 'tb')
                 ->where($qb->expr()->in('IDENTITY(e.fromNode)', ':nodeIds'))
                 ->orWhere($qb->expr()->in('IDENTITY(e.toNode)', ':nodeIds'))
-                ->setParameter('nodeIds', $nodeIds)
-                ->getQuery()
-                ->getResult();
+                ->setParameter('nodeIds', $nodeIds);
+
+            // Non-admins must not see edges that reach into a DRAFT building on
+            // either end - otherwise a published building's map leaks the
+            // existence/ID of nodes belonging to an unpublished building via
+            // its cross-building edges, even though those nodes are themselves
+            // correctly 404-protected when fetched directly.
+            if (!$isAdmin) {
+                $edgeQb->andWhere('fb.status = :published')
+                       ->andWhere('tb.status = :published')
+                       ->setParameter('published', 'PUBLISHED');
+            }
+
+            $edgeEntities = $edgeQb->getQuery()->getResult();
 
             foreach ($edgeEntities as $edge) {
                 $edges[] = [

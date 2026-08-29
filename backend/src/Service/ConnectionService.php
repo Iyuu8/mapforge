@@ -24,11 +24,6 @@ class ConnectionService
             throw new \DomainException('A node cannot be connected to itself.');
         }
 
-        // depreciated because this restriction breaks the whole point from the app
-        /* if ($fromNode->getFloor()->getBuilding()->getId() !== $toNode->getFloor()->getBuilding()->getId()) {
-            throw new \DomainException('Both nodes must belong to the same building.');
-        } */
-
         $existing = $this->em->getRepository(MapEdge::class)->createQueryBuilder('e')
             ->where('e.fromNode = :from AND e.toNode = :to')
             ->orWhere('e.fromNode = :to AND e.toNode = :from')
@@ -51,6 +46,13 @@ class ConnectionService
         $edge->setUpdatedAt(new \DateTimeImmutable());
 
         $this->em->persist($edge);
+
+        // any new connection changes the graph shape on either side revert
+        // whichever building(s) it touches back to DRAFT so publishing requires
+        // revalidation
+        $this->revertBuildingToDraft($fromNode);
+        $this->revertBuildingToDraft($toNode);
+
         $this->em->flush();
 
         return $edge;
@@ -63,7 +65,24 @@ class ConnectionService
 
     public function disconnectNodes(MapEdge $edge): void
     {
+        // Capture endpoints before removal so we can still revert their buildings.
+        $fromNode = $edge->getFromNode();
+        $toNode = $edge->getToNode();
+
         $this->em->remove($edge);
+
+        // Removing a connection is just as much a structural change as adding one -
+        // a published building could silently lose navigability otherwise.
+        $this->revertBuildingToDraft($fromNode);
+        $this->revertBuildingToDraft($toNode);
+
         $this->em->flush();
+    }
+
+    private function revertBuildingToDraft(MapNode $node): void
+    {
+        $building = $node->getFloor()->getBuilding();
+        $building->setStatus('DRAFT');
+        $building->setUpdatedAt(new \DateTimeImmutable());
     }
 }

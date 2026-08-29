@@ -34,6 +34,15 @@ class Organization
     #[ORM\OneToMany(targetEntity: Building::class, mappedBy: 'organization')]
     private Collection $buildings;
 
+    #[ORM\Column]
+    private ?int $canvasWidth = null;
+
+    #[ORM\Column]
+    private ?int $canvasHeight = null;
+
+    #[ORM\Column(nullable: true)]
+    private ?array $tracingImages = null;
+
     public function __construct()
     {
         $this->buildings = new ArrayCollection();
@@ -118,6 +127,42 @@ class Organization
                 $building->setOrganization(null);
             }
         }
+
+        return $this;
+    }
+
+    public function getCanvasWidth(): ?int
+    {
+        return $this->canvasWidth;
+    }
+
+    public function setCanvasWidth(int $canvasWidth): static
+    {
+        $this->canvasWidth = $canvasWidth;
+
+        return $this;
+    }
+
+    public function getCanvasHeight(): ?int
+    {
+        return $this->canvasHeight;
+    }
+
+    public function setCanvasHeight(int $canvasHeight): static
+    {
+        $this->canvasHeight = $canvasHeight;
+
+        return $this;
+    }
+
+    public function getTracingImages(): ?array
+    {
+        return $this->tracingImages;
+    }
+
+    public function setTracingImages(?array $tracingImages): static
+    {
+        $this->tracingImages = $tracingImages;
 
         return $this;
     }

@@ -21,3 +21,12 @@ services:
 
     # add more service definitions when explicit configuration is needed
     # please note that last definitions always *replace* previous ones
+
+    League\Flysystem\Local\LocalFilesystemAdapter:
+        arguments:
+            $location: '%kernel.project_dir%/public/uploads/media'
+
+    League\Flysystem\FilesystemOperator:
+        class: League\Flysystem\Filesystem
+        arguments:
+            $adapter: '@League\Flysystem\Local\LocalFilesystemAdapter'

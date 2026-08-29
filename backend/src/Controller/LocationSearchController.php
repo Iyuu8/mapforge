@@ -96,6 +96,9 @@ class LocationSearchController extends AbstractController
             'type' => $n->getType(),
             'floorId' => $n->getFloor()->getId(),
             'buildingId' => $n->getFloor()->getBuilding()->getId(),
+            'geometry'=>$n->getGeometry(),
+            'xCoord' => $n->getXCoord(),
+            'yCoord' => $n->getYCoord(),
         ], $nodes);
 
         return new JsonResponse($data);

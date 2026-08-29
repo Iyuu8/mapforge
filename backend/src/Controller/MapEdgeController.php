@@ -88,6 +88,73 @@ class MapEdgeController extends AbstractController
     }
 
     /**
+     * PUT/PATCH /api/edges/{id}
+     * Admin only.
+     * Body (all fields optional): {
+     *   "distance": float,
+     *   "bidirectional": bool
+     *   // "accessible": bool
+     * }
+     */
+    #[Route('/{id}', name: 'update_edge', methods: ['PUT', 'PATCH'], requirements: ['id' => '\d+'])]
+    #[IsGranted('ROLE_ADMIN')]
+    public function update(int $id, Request $request, \Doctrine\ORM\EntityManagerInterface $em): JsonResponse
+    {
+        $edge = $this->connectionService->findEdge($id);
+        if (!$edge) {
+            return new JsonResponse(
+                $this->errorFormatter->formatError('Edge not found.', 'NOT_FOUND', 404),
+                404
+            );
+        }
+
+        $payload = json_decode($request->getContent(), true);
+        if (!$payload) {
+            return new JsonResponse(
+                $this->errorFormatter->formatError('Invalid JSON payload.', 'VALIDATION_ERROR', 400),
+                400
+            );
+        }
+
+        $isUpdated = false;
+
+        if (isset($payload['distance'])) {
+            if (!is_numeric($payload['distance']) || $payload['distance'] <= 0) {
+                return new JsonResponse(
+                    $this->errorFormatter->formatError('Distance must be a positive number.', 'VALIDATION_ERROR', 422),
+                    422
+                );
+            }
+            $edge->setDistance((float) $payload['distance']);
+            $isUpdated = true;
+        }
+
+        if (isset($payload['bidirectional'])) {
+            $edge->setBidirectional((bool) $payload['bidirectional']);
+            $isUpdated = true;
+        }
+
+        // --- ACCESSIBLE FIELD INSTRUCTIONS ---
+        // To allow editing the accessible field, uncomment the following lines:
+        // if (isset($payload['accessible'])) {
+        //     $edge->setAccessible((bool) $payload['accessible']);
+        //     $isUpdated = true;
+        // }
+        // -------------------------------------
+
+        if ($isUpdated) {
+            // Explicitly update the timestamp as requested 
+            // (Note: You can skip this line if your MapEdge entity uses Doctrine's #[PreUpdate] lifecycle callback)
+            $edge->setUpdatedAt(new \DateTimeImmutable());
+
+            // Flush the changes directly (or move this to a $this->connectionService->updateEdge($edge) method)
+            $em->flush();
+        }
+
+        return new JsonResponse($this->serializeEdge($edge), 200);
+    }
+
+    /**
      * DELETE /api/edges/{id}
      * Admin only.
      */

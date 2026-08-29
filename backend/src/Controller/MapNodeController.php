@@ -89,7 +89,6 @@ class MapNodeController extends AbstractController
      * Admin: always visible. Public/user: only if parent building is PUBLISHED.
      */
     #[Route('/{id}', name:'get_node',methods: ['GET'], requirements: ['id' => '\d+'])]
-    #[IsGranted('ROLE_USER')]
     public function getOne(int $id): JsonResponse
     {
         $node = $this->mapNodeService->findNode($id);
@@ -100,6 +99,7 @@ class MapNodeController extends AbstractController
             );
         }
 
+        
         $isPublished = $node->getFloor()->getBuilding()->getStatus() === 'PUBLISHED';
         if (!$this->isGranted('ROLE_ADMIN') && !$isPublished) {
             return new JsonResponse(

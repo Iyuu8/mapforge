@@ -12,6 +12,8 @@ use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
+use Symfony\Component\HttpFoundation\Cookie;
+use Gesdinet\JWTRefreshTokenBundle\Model\RefreshTokenManagerInterface;
 
 final class UserController extends AbstractController
 {
@@ -80,5 +82,46 @@ final class UserController extends AbstractController
 
             ]
         ],200);
+    }
+
+    #[Route('/api/logout',name:'user_logout',methods:['POST'])]
+    #[IsGranted('ROLE_USER')]
+    public function logout(Request $request, RefreshTokenManagerInterface $refreshTokenManager) : JsonResponse {
+
+        $refreshTokenString = $request->cookies->get('refresh_token'); 
+        
+        if ($refreshTokenString) {
+            $refreshToken = $refreshTokenManager->get($refreshTokenString);
+            if ($refreshToken) {
+                $refreshTokenManager->delete($refreshToken);
+            }
+        }
+
+        $response = new JsonResponse([
+            'status' => 'success',
+            'message' => 'User logged out successfully'
+        ]);
+
+        $response = new JsonResponse([
+            'status'=>'success',
+            'message'=>'user logged out successfuly'
+        ]);
+        $response->headers->clearCookie(
+            'AUTH_BEARER',
+            '/',
+            null,
+            false, // set to true in production
+            true,
+            Cookie::SAMESITE_LAX
+        );
+        $response->headers->clearCookie(
+            'refresh_token',
+            '/',
+            null,
+            false, // set to true in production
+            true,
+            Cookie::SAMESITE_LAX
+        );
+        return $response;
     }
 }

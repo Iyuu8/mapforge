@@ -6,6 +6,8 @@ use App\Entity\Building;
 use App\Service\FloorService;
 use App\Service\BuildingService;
 use App\Service\ErrorFormatter;
+use Doctrine\ORM\EntityManagerInterface;
+use Dom\EntityReference;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -19,6 +21,7 @@ class FloorController extends AbstractController
         private FloorService $floorService,
         private BuildingService $buildingService,
         private ErrorFormatter $errorFormatter,
+        private EntityManagerInterface $em
     ) {}
 
     /**
@@ -76,7 +79,6 @@ class FloorController extends AbstractController
      * Public/user: only if the parent building is PUBLISHED.
      */
     #[Route('/{id}', name:'get_floor_by_id',methods: ['GET'], requirements: ['id' => '\d+'])]
-    #[IsGranted('ROLE_USER')]
     public function getOne(int $id): JsonResponse
     {
         $floor = $this->floorService->findFloor($id);
@@ -130,6 +132,39 @@ class FloorController extends AbstractController
         return new JsonResponse($this->serializeFloor($floor));
     }
 
+    /**
+     * DELETE /api/floors/{id}
+     * Admin only. Deletes a floor and its associated geometry/nodes (handled by Doctrine cascades or FloorService).
+     */
+    #[Route('/{id}', name: 'delete_floor', methods: ['DELETE'], requirements: ['id' => '\d+'])]
+    #[IsGranted('ROLE_ADMIN')]
+    public function delete(int $id): JsonResponse
+    {
+        $floor = $this->floorService->findFloor($id);
+        
+        if (!$floor) {
+            return new JsonResponse(
+                $this->errorFormatter->formatError('Floor not found.', 'NOT_FOUND', 404),
+                404
+            );
+        }
+
+        try{
+            $this->em->remove($floor);
+            $this->em->flush();
+        }catch(\Exception $e) {
+            return new JsonResponse(
+                $this->errorFormatter->formatError(
+                    'Unable to delete floor; it may still have dependent nodes.',
+                    'CONFLICT',
+                    409
+                ),
+                409
+            );
+        }
+
+        return new JsonResponse(null, 204);
+    }
     // helper function
     private function serializeFloor(\App\Entity\Floor $floor): array
     {

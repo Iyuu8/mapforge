@@ -34,15 +34,15 @@ class MapValidationService
             return ['valid' => false, 'errors' => $errors];
         }
 
-        $hasEntrance = false;
+        $hasAccessPoint = false;
         foreach ($allNodes as $node) {
-            if ($node->getType() === 'ENTRANCE') {
-                $hasEntrance = true;
+            if (in_array($node->getType(), ['ENTRANCE', 'GATE'], true)) {
+                $hasAccessPoint = true;
                 break;
             }
         }
-        if (!$hasEntrance) {
-            $errors[] = 'Building has no entrance node.';
+        if (!$hasAccessPoint) {
+            $errors[] = 'Building has no entrance or gate node.';
         }
 
         // Fetch ALL edges connected to this building (both outgoing and incoming)
@@ -65,15 +65,6 @@ class MapValidationService
             if ($edge->getDistance() <= 0) {
                 $prefix = $isCrossBuilding ? 'Cross-building edge' : 'Edge';
                 $errors[] = "{$prefix} {$edge->getId()} has an invalid distance.";
-            }
-
-            // Cross-building safety check: prevent routing into unpublished buildings
-            if ($isCrossBuilding) {
-                $otherBuilding = ($fromBuilding->getId() === $building->getId()) ? $toBuilding : $fromBuilding;
-                
-                if ($otherBuilding->getStatus() !== 'PUBLISHED') {
-                    $errors[] = "Cross-building edge {$edge->getId()} connects to an unpublished building '{$otherBuilding->getName()}'. Publish that building first.";
-                }
             }
         }
 

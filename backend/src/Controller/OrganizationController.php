@@ -13,6 +13,7 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Component\HttpFoundation\Response;
 
 
 #[Route('/api/organizations')]
@@ -37,16 +38,18 @@ class OrganizationController extends AbstractController
      * one level down, on the /buildings sub-resource.
      */
     #[Route('', name:'get_origanizations',methods: ['GET'])]
-    #[IsGranted('ROLE_USER')]
     public function list(): JsonResponse
     {
         $organizations = $this->em->getRepository(Organization::class)->findAll();
-
+        $isAdmin = $this->isGranted('ROLE_ADMIN');
         $data = array_map(fn(Organization $o) => [
             'id' => $o->getId(),
             'name' => $o->getName(),
             'description' => $o->getDescription(),
             'createdAt' => $o->getCreatedAt()->format(\DateTime::ATOM),
+            'canvasWidth'=>$o->getCanvasWidth(),
+            'canvasHeight'=>$o->getCanvasHeight(),
+            'tracingImages'=>$isAdmin? $o->getTracingImages() : null,
         ], $organizations);
 
         return new JsonResponse($data);
@@ -72,12 +75,15 @@ class OrganizationController extends AbstractController
 
         $now = new \DateTimeImmutable();
 
-        // Create Organization
+        // Create Organization = map
         $org = new Organization();
         $org->setName($payload['name']);
         $org->setDescription($payload['description'] ?? null);
+        $org->setCanvasHeight($payload['canvasHeight']?? 6000);
+        $org->setCanvasWidth($payload['canvasWidth']?? 8000);
         $org->setCreatedAt($now);
         $org->setUpdatedAt($now);
+        
 
         $this->em->persist($org);
 
@@ -101,19 +107,102 @@ class OrganizationController extends AbstractController
             'name' => $org->getName(),
             'description' => $org->getDescription(),
             'createdAt' => $org->getCreatedAt()->format(\DateTime::ATOM),
+            'canvasWidth'=>$org->getCanvasWidth(),
+            'canvasHeight'=>$org->getCanvasHeight(),
+            'tracingImages'=>$org->getTracingImages(),
             'defaultCampus' => [
                 'id' => $campus->getId(),
                 'name' => $campus->getName(),
                 'status' => $campus->getStatus(),
                 'createdAt' => $campus->getCreatedAt()->format(\DateTime::ATOM),
+                'geometry' => $campus->getGeometry(),
+                'description' => $campus->getDescription(),
+                'color'=>$campus->getColor(),
             ],
         ], 201);
     }
+
+    #[Route('/{id}', name: 'edit_organization', methods: ['PUT','PATCH'])]
+    #[IsGranted('ROLE_ADMIN')]
+    public function update(Request $request, int $id): JsonResponse
+    {
+        $payload = json_decode($request->getContent(), true);
+
+        if (!$payload) {
+            return new JsonResponse(
+                $this->errorFormatter->formatError('missing required fields', 'BAD_REQUEST', Response::HTTP_BAD_REQUEST),
+                Response::HTTP_BAD_REQUEST
+            );
+        }
+
+        $org = $this->em->getRepository(Organization::class)->find($id);
+        if(!$org) return $this->json($this->errorFormatter->formatError("Organization not found.","NOT_FOUND",Response::HTTP_NOT_FOUND),Response::HTTP_NOT_FOUND);
+
+        $campus = $this->em->getRepository(Building::class)->findOneBy(['name'=>'Default Campus', 'organization'=>$org]);
+
+        /** @var Organization $org */
+        if($org->getName() && isset($payload['name']) && !trim($payload['name'])) return $this->json($this->errorFormatter->formatError('you cannot remove the name of the organization','BAD_REQUEST',Response::HTTP_BAD_REQUEST),Response::HTTP_BAD_REQUEST);
+        if(isset($payload['name'])) $org->setName($payload['name']);
+
+        $description = trim($payload['description']?? '');
+        if($description) $org->setDescription($description);
+
+        // not possible to change the canvas height and width, possible to add images and change change their order ( z index ), the strcuture in the request is bellow
+        /*
+            [
+                {
+                    "id": "a1b2c3d4",
+                    "imagePath": "/uploads/blueprint1.png",
+                    "x": 150.5,
+                    "y": 200.0,
+                    "width": 1024,
+                    "height": 768,
+                    "zIndex": 1
+                },
+                {
+                    "id": "a1b2c3d5",
+                    "imagePath": "/uploads/blueprint2.png",
+                    "x": 150.5,
+                    "y": 200.0,
+                    "width": 1024,
+                    "height": 768,
+                    "zIndex": 1
+                },
+            ] 
+        */
+        $tracingImages = $payload['tracingImages']?? null;
+        if($tracingImages && is_array($tracingImages)) $org->setTracingImages($tracingImages);
+
+        $now = new \DateTimeImmutable();
+        $org->setUpdatedAt($now);
+
+        $this->em->flush();
+
+        return new JsonResponse([
+            'id' => $org->getId(),
+            'name' => $org->getName(),
+            'description' => $org->getDescription(),
+            'createdAt' => $org->getCreatedAt()->format(\DateTime::ATOM),
+            'canvasWidth'=>$org->getCanvasWidth(),
+            'canvasHeight'=>$org->getCanvasHeight(),
+            'tracingImages'=>$org->getTracingImages(),
+            'defaultCampus' => [
+                'id' => $campus?->getId(),
+                'name' => $campus?->getName(),
+                'status' => $campus?->getStatus(),
+                'createdAt' => $campus?->getCreatedAt()->format(\DateTime::ATOM),
+                'geometry' => $campus?->getGeometry(),
+                'description' => $campus?->getDescription(),
+                'color'=>$campus?->getColor(),
+            ],
+        ], 201);
+    }
+
+
     /**
      * GET /api/organizations/{id}
      */
     #[Route('/{id}', name:'get_organization_by_id',methods: ['GET'], requirements: ['id' => '\d+'])]
-    #[IsGranted('ROLE_USER')]
     public function getOne(int $id): JsonResponse
     {
         $org = $this->em->getRepository(Organization::class)->find($id);
@@ -125,10 +214,15 @@ class OrganizationController extends AbstractController
             );
         }
 
+        $isAdmin = $this->isGranted('ROLE_ADMIN');
         return new JsonResponse([
             'id' => $org->getId(),
             'name' => $org->getName(),
             'description' => $org->getDescription(),
+            'createdAt' => $org->getCreatedAt()->format(\DateTime::ATOM),
+            'canvasWidth'=>$org->getCanvasWidth(),
+            'canvasHeight'=>$org->getCanvasHeight(),
+            'tracingImages'=>$isAdmin? $org->getTracingImages() : null,
         ]);
     }
 
@@ -175,7 +269,6 @@ class OrganizationController extends AbstractController
      * Public/user: PUBLISHED only.
      */
     #[Route('/{id}/buildings', name:'get_buildings_organization',methods: ['GET'], requirements: ['id' => '\d+'])]
-    #[IsGranted('ROLE_USER')]
     public function buildings(int $id): JsonResponse
     {
         $org = $this->em->getRepository(Organization::class)->find($id);
@@ -197,6 +290,11 @@ class OrganizationController extends AbstractController
             'id' => $b->getId(),
             'name' => $b->getName(),
             'status' => $b->getStatus(),
+            'color'=> $b->getColor(),
+            'description'=>$b->getDescription(),
+            'geometry'=>$b->getGeometry(),
+            'createdAt'=>$b->getCreatedAt(),
+            'updatedAt'=>$b->getUpdatedAt()
         ], $buildings);
 
         return new JsonResponse($data);

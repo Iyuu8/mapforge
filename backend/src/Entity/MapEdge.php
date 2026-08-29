@@ -19,8 +19,8 @@ class MapEdge
     #[ORM\Column]
     private ?bool $bidirectional = true;
 
-    #[ORM\Column]
-    private ?bool $accessible = true;
+    #[ORM\Column(name: '`accessible`')]
+    private bool $accessible = true;
 
     #[ORM\Column]
     private ?\DateTimeImmutable $createdAt = null;

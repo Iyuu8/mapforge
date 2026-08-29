@@ -53,6 +53,7 @@ class BuildingService
         }
         if (array_key_exists('geometry', $fields)) { 
             $building->setGeometry($fields['geometry']);
+            $building->setStatus('DRAFT');
         }
         if(isset($fields['color'])){
             $validColor = false;
