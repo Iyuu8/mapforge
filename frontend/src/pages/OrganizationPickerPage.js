@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Eye, Plus, Rocket, Wrench } from 'lucide-react';
+import { Eye, Plus, Rocket, Trash2, Wrench } from 'lucide-react';
 import * as organizationApi from '../api/organizationApi';
 import AppTopbar from '../components/common/AppTopbar';
+import ConfirmModal from '../components/common/ConfirmModal';
 import StatusMessage from '../components/common/StatusMessage';
 import useAuth from '../hooks/useAuth';
 
@@ -20,6 +21,8 @@ export default function OrganizationPickerPage({ mode }) {
   const [error, setError] = useState(null);
   const [newOrg, setNewOrg] = useState(emptyNewOrg);
   const [creating, setCreating] = useState(false);
+  const [deletingId, setDeletingId] = useState(null);
+  const [deleteTarget, setDeleteTarget] = useState(null);
   const [publishResult, setPublishResult] = useState(null);
 
   const isAdminMode = mode === 'admin';
@@ -81,6 +84,22 @@ export default function OrganizationPickerPage({ mode }) {
       if (apiError.raw?.results) {
         setPublishResult(apiError.raw);
       }
+    }
+  }
+
+  async function handleDelete() {
+    if (!deleteTarget) return;
+    setDeletingId(deleteTarget.id);
+    setPublishResult(null);
+    setError(null);
+    try {
+      await organizationApi.deleteOrganization(deleteTarget.id);
+      setOrganizations((current) => current.filter((item) => Number(item.id) !== Number(deleteTarget.id)));
+      setDeleteTarget(null);
+    } catch (apiError) {
+      setError(apiError);
+    } finally {
+      setDeletingId(null);
     }
   }
 
@@ -194,6 +213,12 @@ export default function OrganizationPickerPage({ mode }) {
                       <Rocket size={16} />
                       Publish
                     </button>
+                    {isAdminMode ? (
+                      <button className="button buttonDanger" type="button" disabled={deletingId === organization.id} onClick={() => setDeleteTarget(organization)}>
+                        <Trash2 size={16} />
+                        {deletingId === organization.id ? 'Deleting...' : 'Delete'}
+                      </button>
+                    ) : null}
                   </>
                 ) : null}
               </div>
@@ -201,6 +226,18 @@ export default function OrganizationPickerPage({ mode }) {
           ))}
         </section>
       </main>
+      {deleteTarget ? (
+        <ConfirmModal
+          title={`Delete ${deleteTarget.name}`}
+          confirmLabel={deletingId === deleteTarget.id ? 'Deleting...' : 'Delete organization'}
+          disabled={deletingId === deleteTarget.id}
+          onCancel={() => setDeleteTarget(null)}
+          onConfirm={handleDelete}
+        >
+          <p>All buildings, floors, nodes, and connections in this organization will be removed.</p>
+          <p>This action cannot be undone.</p>
+        </ConfirmModal>
+      ) : null}
     </div>
   );
 }

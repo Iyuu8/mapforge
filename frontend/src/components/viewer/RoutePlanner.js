@@ -6,12 +6,13 @@ import { groupRouteByFloor } from '../../domain/mapModel';
 import useDebouncedValue from '../../hooks/useDebouncedValue';
 import StatusMessage from '../common/StatusMessage';
 
-export function LocationSearchBox({ label, organizationId, selected, onSelect, onLocationSelected }) {
+export function LocationSearchBox({ label, organizationId, selected, onSelect, onLocationSelected, displaySelectedInInput = false, hideSelectedLocation = false }) {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [searched, setSearched] = useState(false);
+  const [editingSelected, setEditingSelected] = useState(false);
   const debouncedQuery = useDebouncedValue(query, 300);
 
   useEffect(() => {
@@ -47,7 +48,18 @@ export function LocationSearchBox({ label, organizationId, selected, onSelect, o
     return () => {
       active = false;
     };
-  }, [debouncedQuery, organizationId]);
+  }, [debouncedQuery, displaySelectedInInput, editingSelected, organizationId, selected]);
+
+  useEffect(() => {
+    setEditingSelected(false);
+    setQuery('');
+    setResults([]);
+    setSearched(false);
+    setError(null);
+  }, [selected]);
+
+  const selectedText = selected ? `${selected.identifier || selected.externalIdentifier || selected.id} - ${selected.name}` : '';
+  const inputValue = displaySelectedInInput && selected && !editingSelected && query.length === 0 ? selectedText : query;
 
   return (
     <div className="locationSearchBox">
@@ -55,9 +67,15 @@ export function LocationSearchBox({ label, organizationId, selected, onSelect, o
         {label}
         <input
           type="search"
-          value={query}
+          value={inputValue}
           onChange={(event) => setQuery(event.target.value)}
-          placeholder={selected ? `${selected.identifier || selected.externalIdentifier} - ${selected.name}` : 'Search room, entrance, facility'}
+          onFocus={() => {
+            if (displaySelectedInInput && selected && query.length === 0) setEditingSelected(true);
+          }}
+          onBlur={() => {
+            if (displaySelectedInInput && selected && query.length === 0) setEditingSelected(false);
+          }}
+          placeholder={selected ? selectedText : 'Search room, entrance, facility'}
         />
       </label>
       {loading ? <small className="searchMeta">Searching...</small> : null}
@@ -66,7 +84,7 @@ export function LocationSearchBox({ label, organizationId, selected, onSelect, o
         <small className="searchMeta">No results in this map.</small>
       ) : null}
       {!loading && !error && (!searched || results.length > 0) ? <small className="searchMeta searchMetaSpacer"> </small> : null}
-      {selected ? (
+      {selected && !hideSelectedLocation ? (
         <button className="selectedLocation" type="button" onClick={() => onSelect(null)}>
           <LocateFixed size={14} />
           <span>{selected.identifier || selected.externalIdentifier || selected.id}</span>
@@ -83,6 +101,7 @@ export function LocationSearchBox({ label, organizationId, selected, onSelect, o
                 onSelect(result);
                 onLocationSelected?.(result);
                 setQuery('');
+                setEditingSelected(false);
                 setResults([]);
               }}
             >

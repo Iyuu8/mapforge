@@ -35,6 +35,7 @@ import {
   buildNodeIndex,
   collectUniqueEdges,
   createCoordinateMapper,
+  formatRoutePath,
   getActiveFloorNumber,
   getFloorsForLevel,
   geometryToKonvaPolygons,
@@ -44,7 +45,6 @@ import {
   getMapContentBounds,
   getNodeById,
   getVisibleEdges,
-  groupRouteByFloor,
   normalizeMapPayload,
   routeEdgeSet,
   routeNodeSet,
@@ -201,6 +201,14 @@ function targetHasSelectedElement(target, stage) {
   return false;
 }
 
+function moveKonvaNodeToLayer(node, layer) {
+  if (!node || !layer || node.getLayer?.() === layer) return;
+  const previousLayer = node.getLayer?.();
+  node.moveTo(layer);
+  previousLayer?.batchDraw();
+  layer.batchDraw();
+}
+
 function makeRectFromPoints(a, b) {
   return {
     x: Math.min(a.x, b.x),
@@ -346,6 +354,8 @@ function TracingImage({
   handleRadius,
   handleStrokeWidth,
   handlesVisible,
+  mainLayerRef,
+  dragLayerRef,
   onSelect,
   onDragEnd,
   onResizeEnd,
@@ -377,10 +387,14 @@ function TracingImage({
         onSelect(item.id);
       }}
       onTap={() => onSelect(item.id)}
-      onDragEnd={(event) => onDragEnd(item.id, {
-        x: Math.round(event.target.x() - center.x),
-        y: Math.round(event.target.y() - center.y),
-      })}
+      onDragStart={(event) => moveKonvaNodeToLayer(event.target, dragLayerRef?.current)}
+      onDragEnd={(event) => {
+        moveKonvaNodeToLayer(event.target, mainLayerRef?.current);
+        onDragEnd(item.id, {
+          x: Math.round(event.target.x() - center.x),
+          y: Math.round(event.target.y() - center.y),
+        });
+      }}
     >
       <KonvaImage
         image={image}
@@ -552,13 +566,11 @@ function EditorCanvas({
   selected,
   tool,
   draftPolygon,
-  drawPreviewPoint,
   currentRoute,
   connectSourceId,
   routePickStep,
   onCanvasPoint,
   onPolygonPoint,
-  onPreviewPoint,
   onClosePolygon,
   onSelectImage,
   onSelectBuilding,
@@ -576,7 +588,6 @@ function EditorCanvas({
   onRoutePickNode,
 }) {
   const [hostRef, size] = useElementSize();
-  const [nodePreviewPoint, setNodePreviewPoint] = useState(null);
   // The marquee box and the pan offset used to be React state
   // (`selectionBox` / `transform`) updated on every single mousemove event.
   // Since every building/node/edge/image in the render body reads from
@@ -599,7 +610,11 @@ function EditorCanvas({
   // Both marquee and pan only commit to React state once, when the gesture
   // actually ends.
   const panWrapperRef = useRef(null);
+  const mainLayerRef = useRef(null);
+  const dragLayerRef = useRef(null);
   const selectionRectRef = useRef(null);
+  const drawPreviewCircleRef = useRef(null);
+  const nodePreviewCircleRef = useRef(null);
   const stageSize = useMemo(() => (
     size.width && size.height ? size : { width: 900, height: 640 }
   ), [size]);
@@ -653,9 +668,16 @@ function EditorCanvas({
   const nodeStrokeWidth = Math.min(Math.max(3 / transform.scale, 1), 24);
   const nodeHaloRadius = nodeRadius * 2.25;
   const labelFontSize = Math.min(Math.max(13 / transform.scale, 10), 38);
+  const buildingLabelFontSize = Math.min(Math.max(21 / transform.scale, 16), 64);
+  const buildingLabelPadding = Math.min(Math.max(7 / transform.scale, 4), 26);
   const visibleNodes = useMemo(
-    () => visibleFloors.flatMap((floor) => (floor.nodes || []).map((node) => ({ ...node, floorId: floor.id, buildingId: floor.buildingId }))),
-    [visibleFloors]
+    () => floors.flatMap((floor) => (floor.nodes || []).map((node) => ({
+      ...node,
+      floorId: floor.id,
+      buildingId: floor.buildingId,
+      floorNumber: Number(floor.floorNumber),
+    }))),
+    [floors]
   );
   const multiSelection = selected?.kind === 'selection' ? selected.item : null;
   const selectedNodeIds = useMemo(() => new Set(multiSelection?.nodeIds || []), [multiSelection]);
@@ -689,12 +711,26 @@ function EditorCanvas({
   const selectedBounds = useMemo(() => boundsFromRects(selectedElementRects), [selectedElementRects]);
   const crossEdges = useMemo(
     () => allEdges.filter((edge) => {
-      const fromVisible = visibleNodesById.has(Number(edge.fromNodeId));
-      const toVisible = visibleNodesById.has(Number(edge.toNodeId));
-      return (fromVisible || toVisible) && !(fromVisible && toVisible);
+      const from = nodesById.get(Number(edge.fromNodeId));
+      const to = nodesById.get(Number(edge.toNodeId));
+      return from && to && Number(from.floorNumber) !== Number(to.floorNumber);
     }),
-    [allEdges, visibleNodesById]
+    [allEdges, nodesById]
   );
+  const otherLevelSameFloorEdges = useMemo(
+    () => allEdges.filter((edge) => {
+      const from = nodesById.get(Number(edge.fromNodeId));
+      const to = nodesById.get(Number(edge.toNodeId));
+      return from && to && Number(from.floorNumber) === Number(to.floorNumber) && !visibleNodesById.has(Number(edge.fromNodeId));
+    }),
+    [allEdges, nodesById, visibleNodesById]
+  );
+  const displayedSameFloorEdges = useMemo(() => {
+    const byId = new Map();
+    sameFloorEdges.forEach((edge) => byId.set(Number(edge.id), edge));
+    otherLevelSameFloorEdges.forEach((edge) => byId.set(Number(edge.id), edge));
+    return [...byId.values()];
+  }, [otherLevelSameFloorEdges, sameFloorEdges]);
 
   const setCanvasTransform = useCallback((nextTransform) => {
     setTransformState((current) => {
@@ -714,9 +750,16 @@ function EditorCanvas({
   }, [bounds, organization?.id, setCanvasTransform, size.height, size.width, stageSize, viewportMemoryRef]);
 
   useEffect(() => {
-    if (tool !== 'addNode') setNodePreviewPoint(null);
     panSessionRef.current = null;
     if (panWrapperRef.current) panWrapperRef.current.style.transform = '';
+    if (drawPreviewCircleRef.current) {
+      drawPreviewCircleRef.current.setAttrs({ visible: false });
+      drawPreviewCircleRef.current.getLayer()?.batchDraw();
+    }
+    if (nodePreviewCircleRef.current) {
+      nodePreviewCircleRef.current.setAttrs({ visible: false });
+      nodePreviewCircleRef.current.getLayer()?.batchDraw();
+    }
     if (selectionRectRef.current) {
       selectionRectRef.current.setAttrs({ visible: false, width: 0, height: 0 });
       selectionRectRef.current.getLayer()?.batchDraw();
@@ -943,8 +986,32 @@ function EditorCanvas({
     }
     const point = pointerToMap();
     if (!point) return;
-    if (tool === 'draw') onPreviewPoint(point);
-    if (tool === 'addNode') setNodePreviewPoint(point);
+    if (tool === 'draw') {
+      const first = draftPolygon[0];
+      const previewPoint = first && draftPolygon.length >= 3 && Math.hypot(point.x - first.x, point.y - first.y) < 42
+        ? first
+        : point;
+      if (drawPreviewCircleRef.current) {
+        drawPreviewCircleRef.current.setAttrs({
+          x: previewPoint.x,
+          y: previewPoint.y,
+          radius: nodeRadius,
+          strokeWidth: nodeStrokeWidth,
+          visible: true,
+        });
+        drawPreviewCircleRef.current.getLayer()?.batchDraw();
+      }
+    }
+    if (tool === 'addNode' && nodePreviewCircleRef.current) {
+      nodePreviewCircleRef.current.setAttrs({
+        x: point.x,
+        y: point.y,
+        radius: nodeRadius,
+        strokeWidth: nodeStrokeWidth,
+        visible: true,
+      });
+      nodePreviewCircleRef.current.getLayer()?.batchDraw();
+    }
   }
 
   function handleWheel(event) {
@@ -1043,7 +1110,7 @@ function EditorCanvas({
             if (tool === 'draw' && draftPolygon.length >= 3) onClosePolygon();
           }}
         >
-          <Layer>
+          <Layer ref={mainLayerRef}>
             <Rect x={0} y={0} width={canvas.width} height={canvas.height} fill="#202422" stroke="#f3f6f4" strokeWidth={24} listening={false} />
             {lowerImages.map((image) => (
               <TracingImage
@@ -1061,13 +1128,14 @@ function EditorCanvas({
                 handleRadius={handleRadius}
                 handleStrokeWidth={handleStrokeWidth}
                 handlesVisible={selectedHandleVisible}
+                mainLayerRef={mainLayerRef}
+                dragLayerRef={dragLayerRef}
               />
             ))}
 
             {buildings.map((building) => {
               const isActive = Number(building.id) === Number(activeBuildingId);
               const isSelected = (selected?.kind === 'building' && Number(selected.id) === Number(building.id)) || selectedBuildingIds.has(Number(building.id));
-              const labelPoint = getGeometryCentroid(building.geometry);
               const polygons = geometryToKonvaPolygons(building.geometry);
               return (
                 <Group
@@ -1075,7 +1143,9 @@ function EditorCanvas({
                   listening={tool === 'select' || tool === 'pan'}
                   draggable={(tool === 'select' || tool === 'pan') && isSelected && selected?.kind !== 'selection'}
                   mapElementSelected={isSelected && selected?.kind !== 'selection'}
+                  onDragStart={(event) => moveKonvaNodeToLayer(event.target, dragLayerRef.current)}
                   onDragEnd={(event) => {
+                    moveKonvaNodeToLayer(event.target, mainLayerRef.current);
                     onBuildingDragEnd(building.id, { dx: event.target.x(), dy: event.target.y() });
                     event.target.position({ x: 0, y: 0 });
                   }}
@@ -1098,12 +1168,6 @@ function EditorCanvas({
                       strokeWidth={isSelected ? 8 : isActive ? 5 : 3}
                     />
                   ))}
-                  {labelPoint && (isSelected || isActive) ? (
-                    <Label x={labelPoint.x + 18} y={labelPoint.y + 18} listening={false}>
-                      <Tag fill="#f8fbfa" cornerRadius={3} opacity={0.9} />
-                      <Text text={building.name} fill="#1a2220" fontSize={16} fontStyle="bold" padding={6} />
-                    </Label>
-                  ) : null}
                   {isSelected ? openGeometryRing(getGeometryPolygons(building.geometry)[0]).map((point, pointIndex) => (
                     selectedHandleVisible ? (
                       <Circle
@@ -1145,6 +1209,8 @@ function EditorCanvas({
                 handleRadius={handleRadius}
                 handleStrokeWidth={handleStrokeWidth}
                 handlesVisible={selectedHandleVisible}
+                mainLayerRef={mainLayerRef}
+                dragLayerRef={dragLayerRef}
               />
             ))}
 
@@ -1152,18 +1218,20 @@ function EditorCanvas({
               <Line key={`floor-${activeFloor.id}-${index}`} points={points} closed stroke="#ffffff" strokeWidth={4} dash={[20, 12]} opacity={0.85} listening={false} />
             )) : null}
 
-            {sameFloorEdges.map((edge) => {
-              const from = visibleNodesById.get(Number(edge.fromNodeId));
-              const to = visibleNodesById.get(Number(edge.toNodeId));
+            {displayedSameFloorEdges.map((edge) => {
+              const from = nodesById.get(Number(edge.fromNodeId));
+              const to = nodesById.get(Number(edge.toNodeId));
               if (!from || !to) return null;
               const isSelected = (selected?.kind === 'edge' && Number(selected.id) === Number(edge.id)) || selectedEdgeIds.has(Number(edge.id));
               const isRoute = routeEdges.has(`${edge.fromNodeId}->${edge.toNodeId}`) || routeEdges.has(`${edge.toNodeId}->${edge.fromNodeId}`);
+              const isCurrentLevelEdge = Number(from.floorNumber) === Number(activeFloorNumber) || Number(to.floorNumber) === Number(activeFloorNumber);
               return (
                 <Group key={edge.id}>
                   <Line
                     points={[cleanNumber(from.xCoord), cleanNumber(from.yCoord), cleanNumber(to.xCoord), cleanNumber(to.yCoord)]}
                     stroke={isRoute ? '#ffd166' : isSelected ? '#9ce5d7' : '#e8efec'}
                     strokeWidth={isRoute ? 10 : isSelected ? 7 : 4}
+                    opacity={isRoute || isCurrentLevelEdge ? 1 : 0.28}
                     dash={edge.accessible === false ? [16, 10] : undefined}
                     lineCap="round"
                     listening={tool === 'select' || tool === 'pan'}
@@ -1185,19 +1253,14 @@ function EditorCanvas({
               );
             })}
 
-            {crossEdges.filter((edge) => (
-              selected?.kind === 'edge' && Number(selected.id) === Number(edge.id)
-            ) || (
-              selected?.kind === 'node' && (Number(edge.fromNodeId) === Number(selected.id) || Number(edge.toNodeId) === Number(selected.id))
-            ) || (
-              tool === 'connect' && (Number(edge.fromNodeId) === Number(connectSourceId) || Number(edge.toNodeId) === Number(connectSourceId))
-            )).map((edge) => {
-              const local = visibleNodesById.get(Number(edge.fromNodeId)) || visibleNodesById.get(Number(edge.toNodeId));
-              const remoteId = Number(local?.id) === Number(edge.fromNodeId) ? edge.toNodeId : edge.fromNodeId;
-              const remote = nodesById.get(Number(remoteId));
-              if (!local || !remote) return null;
-              const angle = Math.atan2(cleanNumber(remote.yCoord) - cleanNumber(local.yCoord), cleanNumber(remote.xCoord) - cleanNumber(local.xCoord));
-              const end = { x: cleanNumber(local.xCoord) + Math.cos(angle) * 110, y: cleanNumber(local.yCoord) + Math.sin(angle) * 110 };
+            {crossEdges.map((edge) => {
+              const from = nodesById.get(Number(edge.fromNodeId));
+              const to = nodesById.get(Number(edge.toNodeId));
+              if (!from || !to) return null;
+              const isSelected = selected?.kind === 'edge' && Number(selected.id) === Number(edge.id);
+              const isRelatedToSelectedNode = selected?.kind === 'node' && (Number(edge.fromNodeId) === Number(selected.id) || Number(edge.toNodeId) === Number(selected.id));
+              const isConnectSource = tool === 'connect' && (Number(edge.fromNodeId) === Number(connectSourceId) || Number(edge.toNodeId) === Number(connectSourceId));
+              const isRoute = routeEdges.has(`${edge.fromNodeId}->${edge.toNodeId}`) || routeEdges.has(`${edge.toNodeId}->${edge.fromNodeId}`);
               return (
                 <Group
                   key={`cross-${edge.id}`}
@@ -1211,11 +1274,14 @@ function EditorCanvas({
                     else onSelectEdge(edge.id);
                   }}
                 >
-                  <Line points={[cleanNumber(local.xCoord), cleanNumber(local.yCoord), end.x, end.y]} stroke="#f6c76f" strokeWidth={4} dash={[12, 10]} lineCap="round" />
-                  <Label x={end.x} y={end.y}>
-                    <Tag fill="#332612" cornerRadius={3} />
-                    <Text text={`to ${remote.name} (${edge.distance}m)`} fill="#fff7df" fontSize={15} padding={6} />
-                  </Label>
+                  <Line
+                    points={[cleanNumber(from.xCoord), cleanNumber(from.yCoord), cleanNumber(to.xCoord), cleanNumber(to.yCoord)]}
+                    stroke={isRoute ? '#ffd166' : '#4aa3ff'}
+                    strokeWidth={isRoute ? 10 : isSelected ? 7 : 4}
+                    dash={isRoute ? [28, 16] : [16, 12]}
+                    opacity={isRoute || isSelected || isRelatedToSelectedNode || isConnectSource ? 1 : 0.52}
+                    lineCap="round"
+                  />
                 </Group>
               );
             })}
@@ -1252,36 +1318,11 @@ function EditorCanvas({
               </>
             ) : null}
 
-            {tool === 'draw' && drawPreviewPoint ? (
-              <Circle
-                x={drawPreviewPoint.x}
-                y={drawPreviewPoint.y}
-                radius={nodeRadius}
-                fill="#fff3c4"
-                stroke="#ffd166"
-                strokeWidth={nodeStrokeWidth}
-                opacity={0.88}
-                listening={false}
-              />
-            ) : null}
-
-            {tool === 'addNode' && nodePreviewPoint ? (
-              <Circle
-                x={nodePreviewPoint.x}
-                y={nodePreviewPoint.y}
-                radius={nodeRadius}
-                fill="#d8ebff"
-                stroke="#2f8cff"
-                strokeWidth={nodeStrokeWidth}
-                opacity={0.82}
-                listening={false}
-              />
-            ) : null}
-
-            {visibleFloors.flatMap((floor) => (floor.nodes || []).map((node) => ({ ...node, floorId: floor.id, buildingId: floor.buildingId }))).map((node) => {
+            {visibleNodes.map((node) => {
               const isSelected = (selected?.kind === 'node' && Number(selected.id) === Number(node.id)) || selectedNodeIds.has(Number(node.id));
               const isRoute = routeNodes.has(Number(node.id));
               const isConnectSource = Number(connectSourceId) === Number(node.id);
+              const isCurrentLevelNode = activeFloorNumber === null || Number(node.floorNumber) === Number(activeFloorNumber);
               const fill = isSelected || isConnectSource ? '#0d4f46' : isRoute ? '#d8913c' : node.type === 'ENTRANCE' || node.type === 'GATE' ? '#23a56f' : '#2f8cff';
               return (
                 <Group
@@ -1290,7 +1331,9 @@ function EditorCanvas({
                   y={cleanNumber(node.yCoord)}
                   draggable={(tool === 'select' || tool === 'pan') && isSelected && selected?.kind !== 'selection'}
                   mapElementSelected={isSelected && selected?.kind !== 'selection'}
+                  onDragStart={(event) => moveKonvaNodeToLayer(event.target, dragLayerRef.current)}
                   onDragEnd={(event) => {
+                    moveKonvaNodeToLayer(event.target, mainLayerRef.current);
                     const point = clampPointToCanvas({ x: event.target.x(), y: event.target.y() }, canvas);
                     onNodeDragEnd(node.id, { xCoord: point.x, yCoord: point.y });
                     event.target.position(point);
@@ -1308,7 +1351,7 @@ function EditorCanvas({
                   }}
                 >
                   {isSelected || isConnectSource ? <Circle radius={nodeHaloRadius} fill={fill} opacity={0.18} listening={false} /> : null}
-                  <Circle radius={nodeRadius} fill={fill} stroke="#d8ebff" strokeWidth={nodeStrokeWidth} shadowColor="rgba(0,0,0,0.32)" shadowBlur={8} />
+                  <Circle radius={nodeRadius} fill={fill} opacity={isCurrentLevelNode || isSelected || isRoute ? 1 : 0.34} stroke={isCurrentLevelNode ? '#d8ebff' : '#9fb3c7'} strokeWidth={nodeStrokeWidth} shadowColor="rgba(0,0,0,0.32)" shadowBlur={8} />
                   {(isSelected || isRoute || isConnectSource || tool === 'route') ? (
                   <Label x={nodeRadius + 7 / transform.scale} y={nodeRadius + 3 / transform.scale} listening={false}>
                     <Tag fill="#ffffff" stroke="#d6ded9" strokeWidth={1} cornerRadius={3} />
@@ -1319,11 +1362,26 @@ function EditorCanvas({
               );
             })}
 
+            {buildings.map((building) => {
+              const isActive = Number(building.id) === Number(activeBuildingId);
+              const isSelected = (selected?.kind === 'building' && Number(selected.id) === Number(building.id)) || selectedBuildingIds.has(Number(building.id));
+              const labelPoint = getGeometryCentroid(building.geometry);
+              if (!labelPoint || (!isSelected && !isActive)) return null;
+              return (
+                <Label key={`building-label-${building.id}`} x={labelPoint.x + buildingLabelFontSize} y={labelPoint.y + buildingLabelFontSize} listening={false}>
+                  <Tag fill="#f8fbfa" cornerRadius={3} opacity={0.94} />
+                  <Text text={building.name} fill="#1a2220" fontSize={buildingLabelFontSize} fontStyle="bold" padding={buildingLabelPadding} />
+                </Label>
+              );
+            })}
+
             {selectedBounds && selectionCount(multiSelection) > 0 ? (
               <Group
                 draggable={tool === 'select' || tool === 'pan'}
                 mapElementSelected
+                onDragStart={(event) => moveKonvaNodeToLayer(event.target, dragLayerRef.current)}
                 onDragEnd={(event) => {
+                  moveKonvaNodeToLayer(event.target, mainLayerRef.current);
                   onBulkDragEnd(multiSelection, { dx: event.target.x(), dy: event.target.y() });
                   event.target.position({ x: 0, y: 0 });
                 }}
@@ -1342,11 +1400,37 @@ function EditorCanvas({
             ) : null}
           </Layer>
           {/* Dedicated, always-listening={false} overlay layer for the live
-              marquee rectangle. It is updated imperatively via
-              selectionRectRef (see handleMouseMove) so dragging a selection
-              box never re-renders or repaints the layer above, which holds
-              every building/node/edge/image. */}
+              marquee rectangle and live tool preview dots. They are updated
+              imperatively via refs (see handleMouseMove), so mouse movement
+              repaints only this tiny layer instead of the layer above, which
+              holds every building/node/edge/image. */}
           <Layer listening={false}>
+            <Circle
+              ref={drawPreviewCircleRef}
+              x={0}
+              y={0}
+              radius={nodeRadius}
+              fill="#fff3c4"
+              stroke="#ffd166"
+              strokeWidth={nodeStrokeWidth}
+              opacity={0.88}
+              visible={false}
+              listening={false}
+            />
+
+            <Circle
+              ref={nodePreviewCircleRef}
+              x={0}
+              y={0}
+              radius={nodeRadius}
+              fill="#d8ebff"
+              stroke="#2f8cff"
+              strokeWidth={nodeStrokeWidth}
+              opacity={0.82}
+              visible={false}
+              listening={false}
+            />
+
             <Rect
               ref={selectionRectRef}
               x={0}
@@ -1642,6 +1726,7 @@ export default function AdminEditorPage() {
   const [activeBuildingId, setActiveBuildingId] = useState(null);
   const [activeFloorId, setActiveFloorId] = useState(null);
   const [selected, setSelected] = useState(null);
+  const [searchSelection, setSearchSelection] = useState(null);
   const [tool, setTool] = useState('select');
   const [loading, setLoading] = useState(true);
   const [savingCount, setSavingCount] = useState(0);
@@ -1657,9 +1742,8 @@ export default function AdminEditorPage() {
   const [publishResult, setPublishResult] = useState(null);
   const [currentRoute, setCurrentRoute] = useState(null);
   const [routeSource, setRouteSource] = useState(null);
-  const [routeDestination, setRouteDestination] = useState(null);
+  const [, setRouteDestination] = useState(null);
   const [routePickStep, setRoutePickStep] = useState('source');
-  const [drawPreviewPoint, setDrawPreviewPoint] = useState(null);
   const [undoStack, setUndoStack] = useState([]);
   const [redoStack, setRedoStack] = useState([]);
   const pendingSavesRef = useRef(new Map());
@@ -1797,6 +1881,7 @@ export default function AdminEditorPage() {
   }, [draftPolygon, selected, tool, undoStack, redoStack]);
 
   function selectOrganization() {
+    setSearchSelection(null);
     setSelected({ kind: 'organization', id: organization.id, label: 'Organization', item: organization });
   }
 
@@ -1805,6 +1890,7 @@ export default function AdminEditorPage() {
     const firstFloor = getFloorsForBuilding(floors, buildingId)[0];
     setActiveBuildingId(buildingId);
     if (!activeFloorId && firstFloor) setActiveFloorId(firstFloor.id);
+    setSearchSelection(null);
     setSelected({ kind: 'building', id: buildingId, label: 'Building', item: building });
   }
 
@@ -1813,11 +1899,13 @@ export default function AdminEditorPage() {
     if (!floor) return;
     setActiveBuildingId(floor.buildingId);
     setActiveFloorId(floor.id);
+    setSearchSelection(null);
     setSelected({ kind: 'floor', id: floor.id, label: 'Floor', item: floor });
   }
 
   function selectNode(nodeId, options = {}) {
     if (!nodeId) {
+      setSearchSelection(null);
       setSelected(null);
       return;
     }
@@ -1827,12 +1915,14 @@ export default function AdminEditorPage() {
       setActiveFloorId(node.floorId);
       setActiveBuildingId(node.buildingId);
     }
+    if (options.fromSearch) setSearchSelection(node);
     setSelected({ kind: 'node', id: node.id, label: 'Node', item: node, buildingId: node.buildingId });
   }
 
   function selectEdge(edgeId) {
     const edge = allEdges.find((item) => Number(item.id) === Number(edgeId));
     if (!edge) return;
+    setSearchSelection(null);
     setSelected({
       kind: 'edge',
       id: edge.id,
@@ -1846,9 +1936,11 @@ export default function AdminEditorPage() {
   function selectMany(selection) {
     const count = selectionCount(selection);
     if (!count) {
+      setSearchSelection(null);
       setSelected(null);
       return;
     }
+    setSearchSelection(null);
     setSelected({ kind: 'selection', id: 'multi-selection', label: `${count} selected`, item: selection });
   }
 
@@ -2063,7 +2155,6 @@ export default function AdminEditorPage() {
     }
     if (nextTool !== 'draw') {
       setDraftPolygon([]);
-      setDrawPreviewPoint(null);
     }
   }
 
@@ -2612,14 +2703,8 @@ export default function AdminEditorPage() {
     }
   }
 
-  async function handleRoute() {
-    if (!routeSource || !routeDestination) return;
-    setActiveTool('route');
-    const route = await runBackgroundOperation('Route ready', () => routeApi.findRoute({ sourceId: routeSource.id, destinationId: routeDestination.id, accessibleOnly: false }), 'The route is highlighted on the canvas.');
-    if (route) setCurrentRoute(route);
-  }
-
   async function handleRoutePickNode(node) {
+    selectNode(node.id, { preserveContext: true });
     if (routePickStep === 'source') {
       setRouteSource(node);
       setRoutePickStep('destination');
@@ -2637,11 +2722,12 @@ export default function AdminEditorPage() {
     const node = getNodeById(floors, result.id) || result;
     if (node.floorId) setActiveFloorId(node.floorId);
     if (node.buildingId) setActiveBuildingId(node.buildingId);
-    selectNode(result.id);
+    setSearchSelection(node);
+    selectNode(result.id, { fromSearch: true });
   }
 
   const selectedSourceNode = connectSourceId ? nodeIndex.get(Number(connectSourceId)) : null;
-  const routeSegments = groupRouteByFloor(currentRoute, floors);
+  const routePathText = formatRoutePath(currentRoute, floors);
   const isSaving = savingCount > 0;
 
   return (
@@ -2649,9 +2735,14 @@ export default function AdminEditorPage() {
       <AppTopbar />
       <main className="editorPage">
         <header className="editorTopbar">
-          <div>
-            <p className="eyebrow">MapForge Editor</p>
-            <h1>{organization?.name || 'Loading editor'}</h1>
+          <div className="editorContextStrip">
+            <strong>{activeBuilding?.name || 'No building selected'}</strong>
+            {getFloorsForBuilding(floors, activeBuildingId).map((floor) => (
+              <button className={Number(activeFloorId) === Number(floor.id) ? 'isActive' : ''} type="button" key={floor.id} onClick={() => selectFloor(floor.id)}>
+                {floor.name}
+              </button>
+            ))}
+            {activeBuilding ? <button type="button" onClick={() => setFloorPopoverOpen(true)}><Plus size={14} /> Floor</button> : null}
           </div>
           <div className="editorToolbar" aria-label="Editor tools">
             <button className={`toolButton ${tool === 'select' ? 'isActive' : ''}`} type="button" onClick={() => setActiveTool('select')} title="Select"><MousePointer2 size={17} /></button>
@@ -2686,15 +2777,6 @@ export default function AdminEditorPage() {
           <StatusMessage title="Loading editor">Fetching organization graph and canvas data.</StatusMessage>
         ) : (
           <>
-            <section className="floorStrip">
-              <strong>{activeBuilding?.name || 'No building selected'}</strong>
-              {getFloorsForBuilding(floors, activeBuildingId).map((floor) => (
-                <button className={Number(activeFloorId) === Number(floor.id) ? 'isActive' : ''} type="button" key={floor.id} onClick={() => selectFloor(floor.id)}>
-                  {floor.name}
-                </button>
-              ))}
-              {activeBuilding ? <button type="button" onClick={() => setFloorPopoverOpen(true)}><Plus size={14} /> Floor</button> : null}
-            </section>
             <section className="editorWorkspace">
               <EditorLayers
                 organization={organization}
@@ -2712,86 +2794,85 @@ export default function AdminEditorPage() {
                 onSelectNode={selectNode}
               />
               <div className="editorCenterColumn">
-                <div className="editorSearchRow">
-                  <div className="editorSearchBox">
-                    <Search size={16} />
-                    <LocationSearchBox label="Search draft and published nodes" organizationId={organizationId} selected={selected?.kind === 'node' ? selected.item : null} onSelect={(node) => node && focusSearchResult(node)} onLocationSelected={focusSearchResult} />
+                <div className="editorCanvasStack">
+                  <EditorCanvas
+                    organization={organization}
+                    buildings={buildings}
+                    floors={floors}
+                    activeBuildingId={activeBuildingId}
+                    activeFloor={activeFloor}
+                    selected={selected}
+                    tool={tool}
+                    draftPolygon={draftPolygon}
+                    currentRoute={currentRoute}
+                    connectSourceId={connectSourceId}
+                    routePickStep={routePickStep}
+                    onCanvasPoint={(point) => {
+                      if (tool === 'draw') setBuildingModalOpen(true);
+                      if (tool === 'addNode' && activeFloor) void handleCreateNode(point);
+                    }}
+                    onPolygonPoint={(point) => {
+                      setDraftPolygon((current) => {
+                        const first = current[0];
+                        if (first && current.length >= 3 && Math.hypot(point.x - first.x, point.y - first.y) < 42) {
+                          setBuildingModalOpen(true);
+                          return current;
+                        }
+                        return [...current, point];
+                      });
+                    }}
+                    onClosePolygon={() => {
+                      if (draftPolygon.length >= 3) setBuildingModalOpen(true);
+                    }}
+                    onSelectImage={selectImage}
+                    onSelectBuilding={selectBuilding}
+                    onSelectNode={(nodeId) => selectNode(nodeId, { preserveContext: true })}
+                    onSelectEdge={selectEdge}
+                    onSelectMany={selectMany}
+                    onActivateSelectTool={() => setActiveTool('select')}
+                    viewportMemoryRef={editorViewportMemoryRef}
+                    onImageChange={handleImageChange}
+                    onBulkDragEnd={handleBulkDragEnd}
+                    onNodeDragEnd={handleNodeDragEnd}
+                    onBuildingDragEnd={handleBuildingDragEnd}
+                    onBuildingVertexDragEnd={handleBuildingVertexDragEnd}
+                    onConnectNode={handleConnectNode}
+                    onRoutePickNode={handleRoutePickNode}
+                  />
+                  <div className="canvasFloatingTop">
+                    <div className="canvasSearchFloat">
+                      <Search size={16} />
+                      <LocationSearchBox
+                        label="Search draft and published nodes"
+                        organizationId={organizationId}
+                        selected={searchSelection}
+                        onSelect={(node) => {
+                          if (node) {
+                            focusSearchResult(node);
+                          } else {
+                            setSearchSelection(null);
+                            if (selected?.kind === 'node') setSelected(null);
+                          }
+                        }}
+                        onLocationSelected={focusSearchResult}
+                        displaySelectedInInput
+                        hideSelectedLocation
+                      />
+                    </div>
+                    {tool === 'connect' && connectSourceId ? (
+                      <div className="crossConnectBox">
+                        <span>Source: {selectedSourceNode?.externalIdentifier || selectedSourceNode?.name}</span>
+                        <LocationSearchBox label="Connect to another floor/building" organizationId={organizationId} selected={null} onSelect={(node) => { if (node) void completeConnection(node.id); }} />
+                      </div>
+                    ) : null}
                   </div>
-                  {tool === 'connect' && connectSourceId ? (
-                    <div className="crossConnectBox">
-                      <span>Source: {selectedSourceNode?.externalIdentifier || selectedSourceNode?.name}</span>
-                      <LocationSearchBox label="Connect to another floor/building" organizationId={organizationId} selected={null} onSelect={(node) => { if (node) void completeConnection(node.id); }} />
+                  {currentRoute ? (
+                    <div className="routeSegmentDock">
+                      <strong>{currentRoute.totalDistance}m total</strong>
+                      <span>{routePathText}</span>
                     </div>
                   ) : null}
                 </div>
-                <EditorCanvas
-                  organization={organization}
-                  buildings={buildings}
-                  floors={floors}
-                  activeBuildingId={activeBuildingId}
-                  activeFloor={activeFloor}
-                  selected={selected}
-                  tool={tool}
-                  draftPolygon={draftPolygon}
-                  drawPreviewPoint={drawPreviewPoint}
-                  currentRoute={currentRoute}
-                  connectSourceId={connectSourceId}
-                  routePickStep={routePickStep}
-                  onCanvasPoint={(point) => {
-                    if (tool === 'draw') setBuildingModalOpen(true);
-                    if (tool === 'addNode' && activeFloor) void handleCreateNode(point);
-                  }}
-                  onPolygonPoint={(point) => {
-                    setDraftPolygon((current) => {
-                      const first = current[0];
-                      if (first && current.length >= 3 && Math.hypot(point.x - first.x, point.y - first.y) < 42) {
-                        setBuildingModalOpen(true);
-                        return current;
-                      }
-                      return [...current, point];
-                    });
-                  }}
-                  onPreviewPoint={(point) => {
-                    const first = draftPolygon[0];
-                    if (first && draftPolygon.length >= 3 && Math.hypot(point.x - first.x, point.y - first.y) < 42) {
-                      setDrawPreviewPoint(first);
-                    } else {
-                      setDrawPreviewPoint(point);
-                    }
-                  }}
-                  onClosePolygon={() => {
-                    if (draftPolygon.length >= 3) setBuildingModalOpen(true);
-                  }}
-                  onSelectImage={selectImage}
-                  onSelectBuilding={selectBuilding}
-                  onSelectNode={(nodeId) => selectNode(nodeId, { preserveContext: true })}
-                  onSelectEdge={selectEdge}
-                  onSelectMany={selectMany}
-                  onActivateSelectTool={() => setActiveTool('select')}
-                  viewportMemoryRef={editorViewportMemoryRef}
-                  onImageChange={handleImageChange}
-                  onBulkDragEnd={handleBulkDragEnd}
-                  onNodeDragEnd={handleNodeDragEnd}
-                  onBuildingDragEnd={handleBuildingDragEnd}
-                  onBuildingVertexDragEnd={handleBuildingVertexDragEnd}
-                  onConnectNode={handleConnectNode}
-                  onRoutePickNode={handleRoutePickNode}
-                />
-                <div className="routePreviewBar">
-                  <LocationSearchBox label="Route from" organizationId={organizationId} selected={routeSource} onSelect={setRouteSource} />
-                  <LocationSearchBox label="Route to" organizationId={organizationId} selected={routeDestination} onSelect={setRouteDestination} />
-                  <button className="button buttonPrimary" type="button" disabled={!routeSource || !routeDestination} onClick={handleRoute}><Route size={16} />Find route</button>
-                </div>
-                {currentRoute ? (
-                  <div className="routeSegmentDock">
-                    <strong>{currentRoute.totalDistance}m total</strong>
-                    {routeSegments.map((segment) => (
-                      <button type="button" key={`${segment.floorId}-${segment.nodes[0]?.id}`} onClick={() => selectFloor(segment.floorId)}>
-                        {segment.floorName}: {segment.nodes.map((node) => node.identifier || node.name).join(' -> ')}
-                      </button>
-                    ))}
-                  </div>
-                ) : null}
               </div>
               <EditorInspector
                 selected={selected}

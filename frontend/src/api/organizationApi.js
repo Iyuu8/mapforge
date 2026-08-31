@@ -24,3 +24,8 @@ export async function publishOrganization(organizationId) {
   const response = await apiClient.post(`/api/organizations/${organizationId}/publish`);
   return response.data;
 }
+
+export async function deleteOrganization(organizationId) {
+  const response = await apiClient.delete(`/api/organizations/${organizationId}`);
+  return response.data;
+}

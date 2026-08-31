@@ -341,13 +341,15 @@ input:focus {
 
 .organizationGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(270px, 1fr));
-  gap: 18px;
+  grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+  gap: 14px;
   margin-top: 24px;
 }
 
 .organizationCard {
   display: grid;
+  grid-template-columns: 156px minmax(0, 1fr);
+  grid-template-rows: auto auto;
   overflow: hidden;
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -357,19 +359,19 @@ input:focus {
 
 .organizationPreview {
   position: relative;
-  min-height: 148px;
-  aspect-ratio: var(--canvas-ratio);
-  max-height: 220px;
+  grid-row: 1 / 3;
+  min-height: 138px;
+  height: 100%;
   background:
-    linear-gradient(90deg, rgba(24, 33, 31, 0.08) 1px, transparent 1px),
-    linear-gradient(rgba(24, 33, 31, 0.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(24, 33, 31, 0.07) 1px, transparent 1px),
+    linear-gradient(rgba(24, 33, 31, 0.07) 1px, transparent 1px),
     #eaf2ef;
-  background-size: 24px 24px;
+  background-size: 18px 18px;
 }
 
 .organizationPreview::after {
   position: absolute;
-  inset: 28px 38px;
+  inset: 28px 24px;
   border: 2px solid rgba(23, 107, 95, 0.55);
   border-radius: 8px;
   content: '';
@@ -377,8 +379,8 @@ input:focus {
 
 .organizationPreview span {
   position: absolute;
-  right: 10px;
-  bottom: 10px;
+  right: 8px;
+  bottom: 8px;
   padding: 5px 8px;
   border-radius: 8px;
   color: var(--primary-strong);
@@ -388,14 +390,40 @@ input:focus {
 }
 
 .organizationBody {
-  padding: 18px 18px 8px;
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  padding: 18px 18px 6px;
+}
+
+.organizationBody h2 {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.organizationBody p {
+  display: -webkit-box;
+  min-height: 2.8em;
+  margin: 0;
+  overflow: hidden;
+  color: var(--muted);
+  line-height: 1.4;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
 }
 
 .organizationActions {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
-  padding: 12px 18px 18px;
+  gap: 8px;
+  align-self: end;
+  padding: 8px 18px 16px;
+}
+
+.organizationActions .button {
+  min-height: 36px;
+  padding: 8px 11px;
 }
 
 .statusMessage {
@@ -466,35 +494,84 @@ input:focus {
   .createOrgForm input:nth-child(2) {
     grid-column: auto;
   }
+
+  .organizationGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .organizationCard {
+    grid-template-columns: 1fr;
+  }
+
+  .organizationPreview {
+    grid-row: auto;
+    min-height: 150px;
+  }
 }
 
 .viewerFrame {
-  background: #f7f8f6;
+  background: #151816;
+}
+
+.viewerFrame .topbar {
+  border-bottom-color: rgba(255, 255, 255, 0.12);
+  background: rgba(34, 39, 36, 0.94);
+}
+
+.viewerFrame .brandMark {
+  color: #f8fbfa;
+}
+
+.viewerFrame .topbarNav a,
+.viewerFrame .accountBadge {
+  color: #a9b8b2;
+}
+
+.viewerFrame .topbarNav a.active {
+  color: #0e302a;
+  background: #9ce5d7;
+}
+
+.viewerFrame .iconTextButton,
+.viewerFrame .buttonGhost {
+  color: #f8fbfa;
+  background: #151816;
+  border-color: rgba(255, 255, 255, 0.12);
 }
 
 .viewerPage {
   display: grid;
-  gap: 18px;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 10px;
   min-height: calc(100vh - 68px);
-  padding: 22px clamp(14px, 2.5vw, 32px) 28px;
+  padding: 10px clamp(12px, 2vw, 24px) 14px;
+  color: #edf4f1;
 }
 
 .viewerHeader {
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   justify-content: space-between;
-  gap: 18px;
+  gap: 12px;
+  min-height: 54px;
+  padding: 8px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.11);
+  border-radius: 8px;
+  background: #222724;
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.28);
 }
 
 .viewerHeader h1 {
   margin: 0;
-  font-size: clamp(1.8rem, 4vw, 2.8rem);
+  color: #f8fbfa;
+  font-size: clamp(1.12rem, 2vw, 1.42rem);
   letter-spacing: 0;
 }
 
 .viewerHeader p {
-  margin: 8px 0 0;
-  color: var(--muted);
+  margin: 2px 0 0;
+  color: #a9b8b2;
+  font-size: 0.9rem;
 }
 
 .selectedSummary {
@@ -502,39 +579,41 @@ input:focus {
   min-width: 220px;
   gap: 3px;
   padding: 12px 14px;
-  border: 1px solid var(--line);
+  border: 1px solid rgba(255, 255, 255, 0.11);
   border-radius: 8px;
-  background: white;
+  background: #151816;
 }
 
 .selectedSummary small {
-  color: var(--muted);
+  color: #a9b8b2;
   font-weight: 800;
 }
 
 .selectedSummary strong {
-  color: var(--primary-strong);
+  color: #9ce5d7;
   font-size: 1.1rem;
 }
 
 .viewerWorkspace {
   display: grid;
-  grid-template-columns: 280px minmax(0, 1fr) 320px;
+  grid-template-columns: 280px minmax(0, 1fr) 300px;
   gap: 14px;
-  min-height: 680px;
+  min-height: 0;
 }
 
 .viewerSidebar,
 .routePanel,
-.viewerCanvas {
-  border: 1px solid var(--line);
+.viewerCanvas,
+.viewerDetailsPanel {
+  border: 1px solid rgba(255, 255, 255, 0.11);
   border-radius: 8px;
-  background: white;
-  box-shadow: 0 12px 32px rgba(24, 33, 31, 0.08);
+  background: #222724;
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.3);
 }
 
 .viewerSidebar,
-.routePanel {
+.routePanel,
+.viewerDetailsPanel {
   overflow: auto;
   padding: 16px;
 }
@@ -548,6 +627,7 @@ input:focus {
 
 .panelHeader h2 {
   margin: 0;
+  color: #f8fbfa;
   font-size: 1rem;
 }
 
@@ -566,10 +646,10 @@ input:focus {
 .searchResults button,
 .selectedLocation {
   width: 100%;
-  border: 1px solid var(--line);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 8px;
-  background: white;
-  color: var(--ink);
+  background: #1b201d;
+  color: #edf4f1;
   cursor: pointer;
   text-align: left;
 }
@@ -586,8 +666,8 @@ input:focus {
 
 .treeBuildingButton.isActive,
 .floorButton.isActive {
-  border-color: rgba(23, 107, 95, 0.45);
-  background: var(--surface-soft);
+  border-color: rgba(156, 229, 215, 0.55);
+  background: #123d36;
 }
 
 .buildingColor {
@@ -612,20 +692,209 @@ input:focus {
 
 .floorButton small {
   grid-column: 2;
-  color: var(--muted);
+  color: #a9b8b2;
 }
 
 .emptyHint {
   margin: 8px 0;
-  color: var(--muted);
+  color: #a9b8b2;
   line-height: 1.45;
 }
 
 .viewerCanvas {
   position: relative;
   min-width: 0;
-  min-height: 680px;
+  min-height: 0;
+  height: 100%;
   overflow: hidden;
+}
+
+.viewerCanvasStage {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+}
+
+.viewerCanvasStage .viewerCanvas {
+  width: 100%;
+  height: 100%;
+}
+
+.viewerCanvasOverlay {
+  position: absolute;
+  inset: 14px;
+  z-index: 20;
+  display: grid;
+  grid-template-columns: auto minmax(260px, 430px) minmax(360px, 560px);
+  align-items: start;
+  justify-content: center;
+  gap: 10px;
+  pointer-events: none;
+}
+
+.viewerCanvasOverlay > * {
+  pointer-events: auto;
+}
+
+.viewerToolCluster,
+.viewerSearchFloat,
+.viewerRouteFields,
+.viewerRouteHint {
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 8px;
+  background: rgba(34, 39, 36, 0.94);
+  box-shadow: 0 16px 38px rgba(0, 0, 0, 0.34);
+}
+
+.viewerToolCluster {
+  display: inline-flex;
+  gap: 6px;
+  padding: 6px;
+}
+
+.viewerToolCluster .toolButton {
+  color: #dce8e4;
+  background: #191d1b;
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.viewerToolCluster .toolButton.isActive {
+  color: #0e302a;
+  background: #9ce5d7;
+  border-color: #7ed6c6;
+}
+
+.viewerSearchFloat {
+  padding: 8px;
+}
+
+.viewerSearchFloat .locationSearchBox,
+.viewerRouteFields .locationSearchBox {
+  display: block;
+}
+
+.viewerSearchFloat .locationSearchBox label,
+.viewerRouteFields .locationSearchBox label {
+  display: grid;
+  gap: 5px;
+  color: #a9b8b2;
+  font-size: 0.78rem;
+}
+
+.viewerSearchFloat .locationSearchBox input,
+.viewerRouteFields .locationSearchBox input {
+  color: #f8fbfa;
+  background: #151816;
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.viewerSearchFloat .locationSearchBox input::placeholder,
+.viewerRouteFields .locationSearchBox input::placeholder {
+  color: rgba(237, 244, 241, 0.46);
+}
+
+.viewerSearchFloat .searchMeta,
+.viewerSearchFloat .selectedLocation,
+.viewerRouteFields .searchMeta,
+.viewerRouteFields .selectedLocation {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  z-index: 31;
+  margin: 0;
+}
+
+.viewerSearchFloat .searchMetaSpacer,
+.viewerRouteFields .searchMetaSpacer {
+  display: none;
+}
+
+.viewerSearchFloat .selectedLocation,
+.viewerRouteFields .selectedLocation {
+  top: calc(100% + 8px);
+}
+
+.viewerSearchFloat .searchResults,
+.viewerRouteFields .searchResults {
+  border-color: rgba(255, 255, 255, 0.12);
+  background: #222724;
+  box-shadow: 0 18px 42px rgba(0, 0, 0, 0.36);
+}
+
+.viewerSearchFloat .searchResults button,
+.viewerRouteFields .searchResults button,
+.viewerSearchFloat .selectedLocation,
+.viewerRouteFields .selectedLocation {
+  color: #edf4f1;
+  background: #151816;
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.viewerSearchFloat .searchResults span,
+.viewerRouteFields .searchResults span,
+.viewerSearchFloat .selectedLocation span,
+.viewerRouteFields .selectedLocation span {
+  color: #9ce5d7;
+}
+
+.viewerSearchFloat .searchResults small,
+.viewerRouteFields .searchResults small {
+  color: #a9b8b2;
+}
+
+.viewerRouteFields {
+  display: grid;
+  grid-template-columns: minmax(170px, 1fr) minmax(170px, 1fr);
+  gap: 8px;
+  padding: 8px;
+}
+
+.viewerRouteHint {
+  grid-column: 1 / -1;
+  justify-self: center;
+  margin-top: 58px;
+  padding: 8px 10px;
+  color: #f6c76f;
+  font-weight: 900;
+}
+
+.viewerRouteError {
+  color: var(--danger);
+}
+
+.viewerRouteLoading {
+  color: #a9b8b2;
+}
+
+.viewerRouteDock {
+  color: #edf4f1;
+}
+
+.viewerDetailsPanel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.propertyList {
+  display: grid;
+  gap: 7px;
+}
+
+.propertyList span {
+  color: #a9b8b2;
+  font-size: 0.78rem;
+  font-weight: 850;
+}
+
+.propertyList strong {
+  min-height: 36px;
+  padding: 8px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  color: #f8fbfa;
+  background: #151816;
 }
 
 .emptyCanvas {
@@ -641,7 +910,7 @@ input:focus {
 
 .emptyCanvas p {
   max-width: 320px;
-  color: var(--muted);
+  color: #a9b8b2;
   line-height: 1.5;
 }
 
@@ -774,8 +1043,18 @@ input:focus {
     grid-template-columns: 240px minmax(0, 1fr);
   }
 
-  .routePanel {
+  .viewerDetailsPanel {
     grid-column: 1 / -1;
+  }
+
+  .viewerCanvasOverlay {
+    grid-template-columns: auto minmax(240px, 1fr);
+  }
+
+  .viewerRouteFields {
+    grid-column: 1 / -1;
+    justify-self: center;
+    width: min(100%, 560px);
   }
 }
 
@@ -790,19 +1069,25 @@ input:focus {
     min-height: auto;
   }
 
+  .viewerCanvasStage,
   .viewerCanvas {
     min-height: 520px;
   }
-}
 
-.viewerHeader {
-  display: grid;
-  grid-template-columns: minmax(220px, 1fr) minmax(260px, 420px) auto;
-  align-items: end;
-}
+  .viewerCanvasOverlay {
+    grid-template-columns: 1fr;
+    justify-content: stretch;
+  }
 
-.viewerHeaderSearch {
-  align-self: end;
+  .viewerToolCluster,
+  .viewerSearchFloat,
+  .viewerRouteFields {
+    justify-self: stretch;
+  }
+
+  .viewerRouteFields {
+    grid-template-columns: 1fr;
+  }
 }
 
 .selectedActions {
@@ -900,29 +1185,41 @@ input:focus {
 }
 
 .editorFrame {
+  display: flex;
+  flex-direction: column;
   height: 100vh;
   min-height: 100vh;
   overflow: hidden;
   background: #151816;
 }
 
+/* The editor is a dense, tool-heavy workspace - the global topbar is mostly
+   dead chrome here, so it's shortened when it appears inside the editor
+   shell. Scoped to .editorFrame so every other page keeps the normal-height
+   topbar. */
+.editorFrame .topbar {
+  min-height: 56px;
+  padding: 8px clamp(14px, 3vw, 28px);
+}
+
 .editorPage {
   display: grid;
-  grid-template-rows: auto auto minmax(0, 1fr);
-  gap: 12px;
-  height: calc(100vh - 68px);
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 10px;
+  /* Fills whatever space remains below the topbar instead of assuming a
+     fixed topbar height, so the workspace always fills the viewport even
+     if the topbar's own height changes (e.g. the compact rule above). */
+  flex: 1 1 auto;
   min-height: 0;
   overflow: hidden;
-  padding: 12px;
+  padding: 10px 12px;
   color: #edf4f1;
 }
 
 .editorTopbar,
-.floorStrip,
+.editorContextStrip,
 .editorSidebar,
 .inspectorPanel,
-.editorSearchRow,
-.routePreviewBar,
 .routeSegmentDock {
   border: 1px solid rgba(255, 255, 255, 0.11);
   border-radius: 8px;
@@ -932,23 +1229,15 @@ input:focus {
 
 .editorTopbar {
   display: grid;
-  grid-template-columns: minmax(210px, 1fr) auto minmax(260px, 1fr);
+  grid-template-columns: minmax(250px, 1fr) auto minmax(260px, 1fr);
   align-items: center;
-  gap: 12px;
-  padding: 12px 14px;
-}
-
-.editorTopbar h1 {
-  margin: 0;
-  color: #f8fbfa;
-  font-size: 1.28rem;
-  letter-spacing: 0;
+  gap: 10px;
+  padding: 7px 10px;
 }
 
 .editorToolbar,
 .editorActions,
-.floorStrip,
-.routePreviewBar {
+.editorContextStrip {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -981,24 +1270,27 @@ input:focus {
   display: none;
 }
 
-.floorStrip {
-  min-height: 48px;
-  padding: 8px 12px;
+.editorContextStrip {
+  min-width: 0;
+  min-height: 40px;
+  padding: 5px 8px;
   overflow-x: auto;
+  background: #1b201d;
+  box-shadow: none;
 }
 
-.floorStrip strong {
+.editorContextStrip strong {
   margin-right: 8px;
   color: #f8fbfa;
   white-space: nowrap;
 }
 
-.floorStrip button {
+.editorContextStrip button {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  min-height: 32px;
-  padding: 6px 10px;
+  min-height: 26px;
+  padding: 4px 9px;
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 8px;
   color: #dce8e4;
@@ -1008,14 +1300,14 @@ input:focus {
   white-space: nowrap;
 }
 
-.floorStrip button.isActive {
+.editorContextStrip button.isActive {
   color: #112c27;
   background: #d8fff5;
 }
 
 .editorWorkspace {
   display: grid;
-  grid-template-columns: 270px minmax(0, 1fr) 320px;
+  grid-template-columns: 216px minmax(0, 1fr) 260px;
   gap: 12px;
   min-height: 0;
   overflow: hidden;
@@ -1146,33 +1438,9 @@ input:focus {
 
 .editorCenterColumn {
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr) auto auto;
+  grid-template-rows: minmax(0, 1fr);
   min-width: 0;
   min-height: 0;
-  gap: 10px;
-}
-
-.editorSearchRow {
-  display: grid;
-  grid-template-columns: minmax(260px, 1fr) minmax(260px, 0.8fr);
-  gap: 10px;
-  padding: 10px;
-}
-
-.editorSearchBox,
-.crossConnectBox {
-  display: grid;
-  gap: 7px;
-}
-
-.editorSearchBox {
-  grid-template-columns: 18px 1fr;
-  align-items: start;
-}
-
-.crossConnectBox span {
-  color: #f6c76f;
-  font-weight: 850;
 }
 
 .editorCanvas {
@@ -1181,6 +1449,99 @@ input:focus {
   overflow: hidden;
   border: 1px solid rgba(255, 255, 255, 0.11);
   border-radius: 8px;
+}
+
+.editorCanvasStack {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+}
+
+.editorCanvasStack .editorCanvas {
+  width: 100%;
+  height: 100%;
+}
+
+.canvasFloatingTop {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  right: 14px;
+  z-index: 22;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: flex-start;
+  gap: 10px;
+  pointer-events: none;
+}
+
+.canvasFloatingTop > * {
+  pointer-events: auto;
+}
+
+.canvasSearchFloat,
+.crossConnectBox {
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 8px;
+  background: rgba(24, 29, 26, 0.92);
+  box-shadow: 0 14px 32px rgba(0, 0, 0, 0.24);
+}
+
+.canvasSearchFloat {
+  grid-column: 2;
+  display: grid;
+  grid-template-columns: 18px minmax(260px, 520px);
+  align-items: center;
+  gap: 9px;
+  padding: 8px 10px;
+}
+
+.canvasSearchFloat .locationSearchBox {
+  display: block;
+  min-width: min(52vw, 520px);
+}
+
+.canvasSearchFloat .locationSearchBox label {
+  display: block;
+  color: transparent;
+  font-size: 0;
+}
+
+.canvasSearchFloat .locationSearchBox input {
+  min-height: 38px;
+  font-size: 0.92rem;
+}
+
+.canvasSearchFloat .searchMeta,
+.canvasSearchFloat .selectedLocation {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  z-index: 31;
+  margin: 0;
+}
+
+.canvasSearchFloat .searchMetaSpacer {
+  display: none;
+}
+
+.canvasSearchFloat .selectedLocation {
+  top: calc(100% + 8px);
+}
+
+.crossConnectBox {
+  grid-column: 3;
+  display: grid;
+  gap: 7px;
+  width: min(30vw, 360px);
+  min-width: 260px;
+  padding: 9px;
+}
+
+.crossConnectBox span {
+  color: #f6c76f;
+  font-weight: 850;
 }
 
 .tool-addNode .konvaCanvasHost {
@@ -1226,26 +1587,30 @@ input:focus {
   font-weight: 800;
 }
 
-.routePreviewBar {
-  align-items: end;
-  padding: 10px;
-}
-
-.routePreviewBar .locationSearchBox {
-  min-width: 220px;
-  flex: 1;
-}
-
 .routeSegmentDock {
+  position: absolute;
+  left: 50%;
+  bottom: 16px;
+  z-index: 20;
   display: flex;
   align-items: center;
   gap: 8px;
+  width: max-content;
+  max-width: min(860px, calc(100% - 360px));
   overflow-x: auto;
   padding: 9px;
+  transform: translateX(-50%);
+  background: rgba(34, 39, 36, 0.93);
 }
 
 .routeSegmentDock strong {
   color: #f6c76f;
+  white-space: nowrap;
+}
+
+.routeSegmentDock span {
+  color: #edf4f1;
+  font-weight: 850;
   white-space: nowrap;
 }
 
@@ -1394,7 +1759,7 @@ input:focus {
 .nodePopover,
 .edgePopover {
   position: fixed;
-  right: 340px;
+  right: 280px;
   bottom: 24px;
   z-index: 35;
 }
@@ -1506,13 +1871,34 @@ input:focus {
 
 @media (max-width: 1180px) {
   .editorTopbar,
-  .editorWorkspace,
-  .editorSearchRow {
+  .editorWorkspace {
     grid-template-columns: 1fr;
   }
 
   .editorActions {
     justify-content: flex-start;
+  }
+
+  .canvasFloatingTop {
+    flex-wrap: wrap;
+  }
+
+  .canvasSearchFloat {
+    grid-template-columns: 18px minmax(220px, 1fr);
+  }
+
+  .canvasSearchFloat .locationSearchBox,
+  .crossConnectBox {
+    min-width: 0;
+    width: auto;
+  }
+
+  .routeSegmentDock {
+    left: 14px;
+    right: 14px;
+    width: auto;
+    max-width: none;
+    transform: none;
   }
 
   .editorSidebar,

@@ -51,7 +51,7 @@ export function buildNodeIndex(floors) {
   const index = new Map();
   floors.forEach((floor) => {
     (floor.nodes || []).forEach((node) => {
-      index.set(Number(node.id), { ...node, floorId: floor.id });
+      index.set(Number(node.id), { ...node, floorId: floor.id, buildingId: floor.buildingId, floorNumber: Number(floor.floorNumber) });
     });
   });
   return index;
@@ -366,4 +366,19 @@ export function groupRouteByFloor(route, floors) {
   });
 
   return segments;
+}
+
+export function formatRoutePath(route, floors) {
+  const floorById = new Map(floors.map((floor) => [Number(floor.id), floor]));
+  let previousFloorId = null;
+
+  return (route?.path || []).map((node, index) => {
+    const floorId = Number(node.floorId);
+    const label = node.identifier || node.externalIdentifier || node.name || node.id;
+    const floorChanged = index === 0 || floorId !== previousFloorId;
+    previousFloorId = floorId;
+    if (!floorChanged) return label;
+    const floorName = floorById.get(floorId)?.name || `Floor ${floorId}`;
+    return `${label} (${floorName})`;
+  }).join(' -> ');
 }
