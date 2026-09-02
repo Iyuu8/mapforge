@@ -73,6 +73,8 @@ export function useMapForgeWebMcp(context) {
   }, [confirm, context.canEdit, service]);
 
   useEffect(() => {
+    const activeOperationIds = activeOperationIdsRef.current;
+
     function clearActivityLater(delay) {
       if (activityTimerRef.current) window.clearTimeout(activityTimerRef.current);
       activityTimerRef.current = window.setTimeout(() => setActivity(null), delay);
@@ -80,7 +82,7 @@ export function useMapForgeWebMcp(context) {
 
     function handleStart(event) {
       if (activityTimerRef.current) window.clearTimeout(activityTimerRef.current);
-      activeOperationIdsRef.current.add(event.detail?.operationId);
+      activeOperationIds.add(event.detail?.operationId);
       setActivity({
         status: 'thinking',
         title: event.detail?.title || 'MapForge tool',
@@ -89,8 +91,8 @@ export function useMapForgeWebMcp(context) {
     }
 
     function handleFinish(event) {
-      activeOperationIdsRef.current.delete(event.detail?.operationId);
-      if (activeOperationIdsRef.current.size > 0) return;
+      activeOperationIds.delete(event.detail?.operationId);
+      if (activeOperationIds.size > 0) return;
       setActivity({
         status: 'finished',
         title: event.detail?.title || 'MapForge tool',
@@ -100,7 +102,7 @@ export function useMapForgeWebMcp(context) {
     }
 
     function handleError(event) {
-      activeOperationIdsRef.current.delete(event.detail?.operationId);
+      activeOperationIds.delete(event.detail?.operationId);
       setActivity({
         status: 'error',
         title: event.detail?.title || 'MapForge tool',
@@ -118,7 +120,7 @@ export function useMapForgeWebMcp(context) {
       window.removeEventListener('mapforge:webmcp:tool-finish', handleFinish);
       window.removeEventListener('mapforge:webmcp:tool-error', handleError);
       if (activityTimerRef.current) window.clearTimeout(activityTimerRef.current);
-      activeOperationIdsRef.current.clear();
+      activeOperationIds.clear();
     };
   }, []);
 
