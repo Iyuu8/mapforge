@@ -228,9 +228,8 @@ class OrganizationController extends AbstractController
 
     /**
      * DELETE /api/organizations/{id}
-     * Admin only. Relies on cascade behaviour configured on the entity mapping
-     * (Organization -> Building -> Floor -> MapNode -> MapEdge). If cascade isn't
-     * configured yet, this will throw a DB FK error - verify entity mapping.
+     * Admin only. Deletes the full organization tree explicitly:
+     * Organization -> Building -> Floor -> MapNode -> MapEdge.
      */
     #[Route('/{id}', name:'remove_organization',methods: ['DELETE'], requirements: ['id' => '\d+'])]
     #[IsGranted('ROLE_ADMIN')]
@@ -246,13 +245,17 @@ class OrganizationController extends AbstractController
         }
 
         try {
+            $buildings = $this->em->getRepository(Building::class)->findBy(['organization' => $org]);
+            foreach ($buildings as $building) {
+                $this->buildingService->deleteBuilding($building);
+            }
+
             $this->em->remove($org);
             $this->em->flush();
         } catch (\Exception $e) {
-            // Likely a FK constraint violation if cascade isn't set up.
             return new JsonResponse(
                 $this->errorFormatter->formatError(
-                    'Unable to delete organization; it may still have dependent buildings.',
+                    'Unable to delete organization.',
                     'CONFLICT',
                     409
                 ),

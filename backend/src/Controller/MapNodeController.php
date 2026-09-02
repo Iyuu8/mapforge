@@ -37,11 +37,10 @@ class MapNodeController extends AbstractController
     {
         $payload = json_decode($request->getContent(), true);
 
-        if (!$payload || empty($payload['floorId']) || empty($payload['externalIdentifier'])
-            || empty($payload['name']) || empty($payload['type'])) {
+        if (!$payload || empty($payload['floorId']) || empty($payload['type'])) {
             return new JsonResponse(
                 $this->errorFormatter->formatError(
-                    'Fields "floorId", "externalIdentifier", "name" and "type" are required.',
+                    'Choose a floor and node type before creating the node.',
                     'VALIDATION_ERROR',
                     400
                 ),
@@ -57,11 +56,45 @@ class MapNodeController extends AbstractController
             );
         }
 
+        $name = trim((string) ($payload['name'] ?? ''));
+        if ($name === '') {
+            $existingCount = count($this->mapNodeService->listNodesForFloor($floor));
+            do {
+                $existingCount++;
+                $name = 'Node ' . $existingCount;
+                $identifier = strtoupper(str_replace(' ', '-', $name));
+                $existing = null;
+                foreach ($this->mapNodeService->listNodesForFloor($floor) as $candidate) {
+                    if (strtoupper($candidate->getExternalIdentifier()) === $identifier) {
+                        $existing = $candidate;
+                        break;
+                    }
+                }
+            } while ($existing !== null);
+        }
+
+        $externalIdentifier = trim((string) ($payload['externalIdentifier'] ?? ''));
+        if ($externalIdentifier === '') {
+            $base = strtoupper(preg_replace('/[^A-Z0-9]+/i', '-', $name));
+            $base = trim($base, '-');
+            $base = $base !== '' ? $base : 'NODE';
+            $externalIdentifier = $base;
+            $suffix = 2;
+            $existingIdentifiers = array_map(
+                fn(MapNode $node) => strtoupper($node->getExternalIdentifier()),
+                $this->mapNodeService->listNodesForFloor($floor)
+            );
+            while (in_array(strtoupper($externalIdentifier), $existingIdentifiers, true)) {
+                $externalIdentifier = $base . '-' . $suffix;
+                $suffix++;
+            }
+        }
+
         try {
             $node = $this->mapNodeService->createNode(
                 $floor,
-                $payload['externalIdentifier'],
-                $payload['name'],
+                $externalIdentifier,
+                $name,
                 $payload['type'],
                 isset($payload['xCoord']) ? (float) $payload['xCoord'] : null,
                 isset($payload['yCoord']) ? (float) $payload['yCoord'] : null,
@@ -69,10 +102,7 @@ class MapNodeController extends AbstractController
                 $payload['geometry'] ?? null
             );
         } catch (\DomainException $e) {
-            // Invalid type -> 422, duplicate identifier -> 409. Distinguish by message
-            // is fragile; simplest robust approach: treat all createNode domain errors
-            // as 422 (validation) except the "already exists" case -> 409 conflict.
-            $isConflict = str_contains($e->getMessage(), 'already exists');
+            $isConflict = str_contains($e->getMessage(), 'already uses');
             return new JsonResponse(
                 $this->errorFormatter->formatError($e->getMessage(), $isConflict ? 'CONFLICT' : 'VALIDATION_ERROR', $isConflict ? 409 : 422),
                 $isConflict ? 409 : 422

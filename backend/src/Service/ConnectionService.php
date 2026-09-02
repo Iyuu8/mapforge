@@ -17,11 +17,11 @@ class ConnectionService
         bool $accessible = true
     ): MapEdge {
         if ($distance <= 0) {
-            throw new \DomainException('Distance must be strictly greater than zero.');
+            throw new \DomainException('Enter a distance greater than zero.');
         }
 
         if ($fromNode->getId() === $toNode->getId()) {
-            throw new \DomainException('A node cannot be connected to itself.');
+            throw new \DomainException('Choose two different locations to create a connection.');
         }
 
         $existing = $this->em->getRepository(MapEdge::class)->createQueryBuilder('e')
@@ -33,7 +33,7 @@ class ConnectionService
             ->getResult();
 
         if (count($existing) > 0) {
-            throw new \DomainException('A connection between these nodes already exists.');
+            throw new \DomainException('These two locations are already connected.');
         }
 
         $edge = new MapEdge();

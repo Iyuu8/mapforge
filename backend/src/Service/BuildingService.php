@@ -7,7 +7,10 @@ use Doctrine\ORM\EntityManagerInterface;
 
 class BuildingService
 {
-    public function __construct(private EntityManagerInterface $em) {}
+    public function __construct(
+        private EntityManagerInterface $em,
+        private FloorService $floorService
+    ) {}
 
     public function createBuilding(Organization $organization, string $name, ?string $description = null, ?array $geometry = null, $color = '#3388ff'): Building
     {
@@ -65,5 +68,28 @@ class BuildingService
         $this->em->flush();
 
         return $building;
+    }
+
+    public function deleteBuilding(Building $building): array
+    {
+        $removedFloorIds = [];
+        $removedNodeIds = [];
+        $removedEdgeIds = [];
+
+        foreach ($building->getFloors()->toArray() as $floor) {
+            $removedFloorIds[] = $floor->getId();
+            $result = $this->floorService->deleteFloor($floor, false);
+            $removedNodeIds = array_merge($removedNodeIds, $result['removedNodeIds']);
+            $removedEdgeIds = array_merge($removedEdgeIds, $result['removedEdgeIds']);
+        }
+
+        $this->em->remove($building);
+        $this->em->flush();
+
+        return [
+            'removedFloorIds' => $removedFloorIds,
+            'removedNodeIds' => $removedNodeIds,
+            'removedEdgeIds' => array_values(array_unique($removedEdgeIds)),
+        ];
     }
 }

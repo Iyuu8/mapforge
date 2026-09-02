@@ -31,7 +31,7 @@ class MapNodeService
         ?array $geometry = null
     ): MapNode {
         if (!in_array($type, self::VALID_TYPES, true)) {
-            throw new \DomainException("Invalid node type: {$type}");
+            throw new \DomainException('Choose one of the available location types.');
         }
 
         $existing = $this->em->getRepository(MapNode::class)->findOneBy([
@@ -40,7 +40,7 @@ class MapNodeService
         ]);
 
         if ($existing) {
-            throw new \DomainException("A node with identifier {$externalIdentifier} already exists on this floor.");
+            throw new \DomainException("Another location on this floor already uses identifier {$externalIdentifier}.");
         }
 
         if ($xCoord === null || $yCoord === null) {
@@ -57,7 +57,7 @@ class MapNodeService
         $node->setXCoord($xCoord);
         $node->setYCoord($yCoord);
         $node->setMetadata($metadata);
-        $node->setGeometry($geometry); // Add this
+        $node->setGeometry($geometry); 
         $node->setCreatedAt(new \DateTimeImmutable());
         $node->setUpdatedAt(new \DateTimeImmutable());
 
@@ -83,12 +83,49 @@ class MapNodeService
 
     public function updateNode(MapNode $node, array $fields): MapNode
     {
+        $originalBuilding = $node->getFloor()->getBuilding();
+        if (isset($fields['floorId'])) {
+            $floor = $this->em->getRepository(Floor::class)->find((int) $fields['floorId']);
+            if (!$floor) {
+                throw new \DomainException('Choose an existing floor for this location.');
+            }
+
+            $identifier = trim((string) ($fields['externalIdentifier'] ?? $node->getExternalIdentifier()));
+            $existing = $this->em->getRepository(MapNode::class)->findOneBy([
+                'floor' => $floor,
+                'externalIdentifier' => $identifier,
+            ]);
+
+            if ($existing && $existing->getId() !== $node->getId()) {
+                throw new \DomainException("Another location on this floor already uses identifier {$identifier}.");
+            }
+
+            $node->setFloor($floor);
+        }
+
         if (isset($fields['name'])) {
             $node->setName($fields['name']);
         }
+        if (isset($fields['externalIdentifier'])) {
+            $identifier = trim((string) $fields['externalIdentifier']);
+            if ($identifier === '') {
+                throw new \DomainException('Give this location an identifier, or leave it blank when creating a new node so MapForge can generate one.');
+            }
+
+            $existing = $this->em->getRepository(MapNode::class)->findOneBy([
+                'floor' => $node->getFloor(),
+                'externalIdentifier' => $identifier,
+            ]);
+
+            if ($existing && $existing->getId() !== $node->getId()) {
+                throw new \DomainException("Another location on this floor already uses identifier {$identifier}.");
+            }
+
+            $node->setExternalIdentifier($identifier);
+        }
         if (isset($fields['type'])) {
             if (!in_array($fields['type'], self::VALID_TYPES, true)) {
-                throw new \DomainException("Invalid node type: {$fields['type']}");
+                throw new \DomainException('Choose one of the available location types.');
             }
             $node->setType($fields['type']);
         }
@@ -108,6 +145,10 @@ class MapNodeService
         $node->setUpdatedAt(new \DateTimeImmutable());
 
         $building = $node->getFloor()->getBuilding();
+        if ($originalBuilding->getId() !== $building->getId()) {
+            $originalBuilding->setStatus('DRAFT');
+            $originalBuilding->setUpdatedAt(new \DateTimeImmutable());
+        }
         $building->setStatus('DRAFT');
         $building->setUpdatedAt(new \DateTimeImmutable());
 
@@ -119,7 +160,7 @@ class MapNodeService
     /**
      * Deletes a node and reports which edges were removed as a result.
      */
-    public function deleteNode(MapNode $node): array
+    public function deleteNode(MapNode $node, bool $flush = true): array
     {
         $edgeRepo = $this->em->getRepository(\App\Entity\MapEdge::class);
         $dependentEdges = array_merge(
@@ -128,7 +169,12 @@ class MapNodeService
         );
 
         $removedEdgeIds = [];
+        $seenEdgeIds = [];
         foreach ($dependentEdges as $edge) {
+            if (isset($seenEdgeIds[$edge->getId()])) {
+                continue;
+            }
+            $seenEdgeIds[$edge->getId()] = true;
             $removedEdgeIds[] = $edge->getId();
             $this->em->remove($edge);
         }
@@ -138,7 +184,9 @@ class MapNodeService
         $building->setUpdatedAt(new \DateTimeImmutable());
 
         $this->em->remove($node);
-        $this->em->flush();
+        if ($flush) {
+            $this->em->flush();
+        }
 
         return $removedEdgeIds;
     }

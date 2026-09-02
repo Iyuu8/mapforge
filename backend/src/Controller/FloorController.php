@@ -2,12 +2,9 @@
 
 namespace App\Controller;
 
-use App\Entity\Building;
 use App\Service\FloorService;
 use App\Service\BuildingService;
 use App\Service\ErrorFormatter;
-use Doctrine\ORM\EntityManagerInterface;
-use Dom\EntityReference;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -20,8 +17,7 @@ class FloorController extends AbstractController
     public function __construct(
         private FloorService $floorService,
         private BuildingService $buildingService,
-        private ErrorFormatter $errorFormatter,
-        private EntityManagerInterface $em
+        private ErrorFormatter $errorFormatter
     ) {}
 
     /**
@@ -149,13 +145,12 @@ class FloorController extends AbstractController
             );
         }
 
-        try{
-            $this->em->remove($floor);
-            $this->em->flush();
-        }catch(\Exception $e) {
+        try {
+            $this->floorService->deleteFloor($floor);
+        } catch (\Throwable $e) {
             return new JsonResponse(
                 $this->errorFormatter->formatError(
-                    'Unable to delete floor; it may still have dependent nodes.',
+                    'Unable to delete floor.',
                     'CONFLICT',
                     409
                 ),

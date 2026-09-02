@@ -186,12 +186,13 @@ class BuildingController extends AbstractController
                 ? $this->em->getRepository(Building::class)->findBy(['organization' => $organization])
                 : $this->em->getRepository(Building::class)->findBy(['organization' => $organization, 'status' => 'PUBLISHED']);
 
-            $floors = [];
+            $floorsToSerialize = [];
             foreach ($buildings as $building) {
                 foreach ($building->getFloors() as $floor) {
-                    $floors[] = $this->serializeFloorWithGraph($floor);
+                    $floorsToSerialize[] = $floor;
                 }
             }
+            $floors = $this->serializeFloorsWithGraph($floorsToSerialize);
 
             return new JsonResponse([
                 'buildings' => array_map(fn(Building $b) => [
@@ -217,10 +218,7 @@ class BuildingController extends AbstractController
             );
         }
 
-        $floors = [];
-        foreach ($building->getFloors() as $floor) {
-            $floors[] = $this->serializeFloorWithGraph($floor);
-        }
+        $floors = $this->serializeFloorsWithGraph($building->getFloors());
 
         return new JsonResponse([
             'building' => [
@@ -247,14 +245,12 @@ class BuildingController extends AbstractController
             404
         );
 
-        try{
-
-            $this->em->remove($building);
-            $this->em->flush();
-        }catch(\Exception $e) {
+        try {
+            $this->buildingService->deleteBuilding($building);
+        } catch (\Throwable $e) {
             return new JsonResponse(
                 $this->errorFormatter->formatError(
-                    'Unable to delete building; it may still have dependent floors.',
+                    'Unable to delete building.',
                     'CONFLICT',
                     409
                 ),
@@ -289,41 +285,64 @@ class BuildingController extends AbstractController
      */
     private function serializeFloorWithGraph(Floor $floor): array
     {
-        $isAdmin = $this->isGranted('ROLE_ADMIN');
+        return $this->serializeFloorsWithGraph([$floor])[0];
+    }
 
-        $nodes = [];
+    private function serializeFloorsWithGraph(iterable $floors): array
+    {
+        $isAdmin = $this->isGranted('ROLE_ADMIN');
+        $serializedFloors = [];
         $nodeIds = [];
-        foreach ($floor->getMapNodes() as $node) {
-            $nodeIds[] = $node->getId();
-            $nodes[] = [
-                'id' => $node->getId(),
-                'externalIdentifier' => $node->getExternalIdentifier(),
-                'name' => $node->getName(),
-                'type' => $node->getType(),
-                'xCoord' => $node->getXCoord(),
-                'yCoord' => $node->getYCoord(),
-                'geometry'=>$node->getGeometry(),
-                'metadata' => $node->getMetadata(),
+        $floorIdsByNodeId = [];
+
+        foreach ($floors as $floor) {
+            $floorNodeIds = [];
+            $nodes = [];
+            foreach ($floor->getMapNodes() as $node) {
+                $nodeId = $node->getId();
+                $nodeIds[] = $nodeId;
+                $floorNodeIds[] = $nodeId;
+                $nodes[] = [
+                    'id' => $nodeId,
+                    'externalIdentifier' => $node->getExternalIdentifier(),
+                    'name' => $node->getName(),
+                    'type' => $node->getType(),
+                    'xCoord' => $node->getXCoord(),
+                    'yCoord' => $node->getYCoord(),
+                    'geometry'=>$node->getGeometry(),
+                    'metadata' => $node->getMetadata(),
+                ];
+            }
+
+            $floorId = $floor->getId();
+            foreach ($floorNodeIds as $nodeId) {
+                $floorIdsByNodeId[$nodeId][] = $floorId;
+            }
+            $serializedFloors[$floorId] = [
+                'id' => $floorId,
+                'buildingId' => $floor->getBuilding()->getId(),
+                'buildingName' => $floor->getBuilding()->getName(),
+                'name' => $floor->getName(),
+                'floorNumber' => $floor->getFloorNumber(),
+                'geometry' => $floor->getGeometry(),
+                'nodes' => $nodes,
+                'edges' => [],
             ];
         }
 
-        // Edges where either endpoint belongs to this floor (covers cross-floor edges too).
-        $edges = [];
+        $nodeIds = array_values(array_unique($nodeIds));
         if (!empty($nodeIds)) {
             $qb = $this->em->createQueryBuilder();
             $edgeQb = $qb->select('e')
                 ->from(\App\Entity\MapEdge::class, 'e')
                 ->join('e.fromNode', 'fn')->join('fn.floor', 'ff')->join('ff.building', 'fb')
                 ->join('e.toNode', 'tn')->join('tn.floor', 'tf')->join('tf.building', 'tb')
-                ->where($qb->expr()->in('IDENTITY(e.fromNode)', ':nodeIds'))
-                ->orWhere($qb->expr()->in('IDENTITY(e.toNode)', ':nodeIds'))
+                ->where($qb->expr()->orX(
+                    $qb->expr()->in('IDENTITY(e.fromNode)', ':nodeIds'),
+                    $qb->expr()->in('IDENTITY(e.toNode)', ':nodeIds')
+                ))
                 ->setParameter('nodeIds', $nodeIds);
 
-            // Non-admins must not see edges that reach into a DRAFT building on
-            // either end - otherwise a published building's map leaks the
-            // existence/ID of nodes belonging to an unpublished building via
-            // its cross-building edges, even though those nodes are themselves
-            // correctly 404-protected when fetched directly.
             if (!$isAdmin) {
                 $edgeQb->andWhere('fb.status = :published')
                        ->andWhere('tb.status = :published')
@@ -333,7 +352,7 @@ class BuildingController extends AbstractController
             $edgeEntities = $edgeQb->getQuery()->getResult();
 
             foreach ($edgeEntities as $edge) {
-                $edges[] = [
+                $edgeData = [
                     'id' => $edge->getId(),
                     'fromNodeId' => $edge->getFromNode()->getId(),
                     'toNodeId' => $edge->getToNode()->getId(),
@@ -341,15 +360,19 @@ class BuildingController extends AbstractController
                     'bidirectional' => $edge->isBidirectional(),
                     'accessible' => $edge->isAccessible(),
                 ];
+
+                $edgeFloorIds = array_unique(array_merge(
+                    $floorIdsByNodeId[$edgeData['fromNodeId']] ?? [],
+                    $floorIdsByNodeId[$edgeData['toNodeId']] ?? []
+                ));
+                foreach ($edgeFloorIds as $floorId) {
+                    if (isset($serializedFloors[$floorId])) {
+                        $serializedFloors[$floorId]['edges'][] = $edgeData;
+                    }
+                }
             }
         }
 
-        return [
-            'id' => $floor->getId(),
-            'name' => $floor->getName(),
-            'floorNumber' => $floor->getFloorNumber(),
-            'nodes' => $nodes,
-            'edges' => $edges,
-        ];
+        return array_values($serializedFloors);
     }
 }

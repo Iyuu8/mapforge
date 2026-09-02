@@ -7,7 +7,10 @@ use Doctrine\ORM\EntityManagerInterface;
 
 class FloorService
 {
-    public function __construct(private EntityManagerInterface $em) {}
+    public function __construct(
+        private EntityManagerInterface $em,
+        private MapNodeService $mapNodeService
+    ) {}
 
     public function createFloor(Building $building, string $name, int $floorNumber, ?array $geometry = null): Floor
     {
@@ -17,7 +20,7 @@ class FloorService
         ]);
 
         if ($existing) {
-            throw new \DomainException("A floor with number {$floorNumber} already exists in this building.");
+            throw new \DomainException("This building already has a floor numbered {$floorNumber}. Choose a different floor number.");
         }
 
         $floor = new Floor();
@@ -72,5 +75,31 @@ class FloorService
             ['building' => $building],
             ['floorNumber' => 'ASC']
         );
+    }
+
+    public function deleteFloor(Floor $floor, bool $flush = true): array
+    {
+        $removedNodeIds = [];
+        $removedEdgeIds = [];
+        $building = $floor->getBuilding();
+
+        foreach ($floor->getMapNodes()->toArray() as $node) {
+            $removedNodeIds[] = $node->getId();
+            $removedEdgeIds = array_merge($removedEdgeIds, $this->mapNodeService->deleteNode($node, false));
+        }
+
+        $building->setStatus('DRAFT');
+        $building->setUpdatedAt(new \DateTimeImmutable());
+
+        $this->em->remove($floor);
+
+        if ($flush) {
+            $this->em->flush();
+        }
+
+        return [
+            'removedNodeIds' => $removedNodeIds,
+            'removedEdgeIds' => array_values(array_unique($removedEdgeIds)),
+        ];
     }
 }

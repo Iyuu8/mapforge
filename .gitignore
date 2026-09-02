@@ -3,6 +3,7 @@
 /backend/.env.local
 /backend/.env.local.php
 /backend/var/
+/backend/public/uploads/media
 
 # Frontend
 /frontend/node_modules/

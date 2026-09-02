@@ -28,14 +28,14 @@ final class MediaController extends AbstractController
         $allowedMimeTypes = ["image/png","image/jpeg","image/gif","image/webp"];
         if(!in_array($file->getMimeType(),$allowedMimeTypes)) return $this->json($errorFormatter->formatError('invalid file type. only png, jpeg, gif and webp are allowed','INVALID_FILE_TYPE',Response::HTTP_BAD_REQUEST),Response::HTTP_BAD_REQUEST);
 
-        $maxSizeBytes = 2 * 1024 * 1024; // 2 megabytes max size
+        $maxSizeBytes = 2 * 1024 * 1024; 
         if($file->getSize()>$maxSizeBytes) return $this->json($errorFormatter->formatError('file is too large. Max size is 2 megabytes','FILE_TOO_LARGE',Response::HTTP_BAD_REQUEST),Response::HTTP_BAD_REQUEST);
 
-        $originalName = pathinfo($file->getClientOriginalName(),PATHINFO_FILENAME); // get the original name without the textension
-        $safeName = $slugger->slug($originalName); // remove spaces and replace them with _ ... etc
-        $newFilename = $safeName . '-' . uniqid() . '.' . $file->guessExtension(); // craete a new unique name for the file
+        $originalName = pathinfo($file->getClientOriginalName(),PATHINFO_FILENAME); 
+        $safeName = $slugger->slug($originalName); 
+        $newFilename = $safeName . '-' . uniqid() . '.' . $file->guessExtension(); 
 
-        //preapre a steam to transmit data in chuncks through Flysystem
+        
         $stream = fopen($file->getPathname(), 'r');
         try{
             $storage->writeStream($newFilename,$stream);
