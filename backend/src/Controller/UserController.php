@@ -110,7 +110,7 @@ final class UserController extends AbstractController
             'AUTH_BEARER',
             '/',
             null,
-            false, // set to true in production
+            true, // set to true in production
             true,
             Cookie::SAMESITE_LAX
         );
@@ -118,7 +118,7 @@ final class UserController extends AbstractController
             'refresh_token',
             '/',
             null,
-            false, // set to true in production
+            true, // set to true in production
             true,
             Cookie::SAMESITE_LAX
         );

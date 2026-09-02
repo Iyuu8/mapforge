@@ -40,7 +40,7 @@ class AuthenticationSuccessEventListener {
                 time()+18000, 
                 '/',
                 null,
-                false, // do not forget to set to true in prod
+                true, // do not forget to set to true in prod
                 true,
                 false,
                 Cookie::SAMESITE_LAX
