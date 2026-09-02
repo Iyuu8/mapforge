@@ -43,7 +43,7 @@ class AuthenticationSuccessEventListener {
                 true, // do not forget to set to true in prod
                 true,
                 false,
-                Cookie::SAMESITE_LAX
+                Cookie::SAMESITE_NONE
             );
             $response->headers->setCookie($cookie);
         }

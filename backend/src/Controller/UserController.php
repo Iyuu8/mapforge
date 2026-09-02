@@ -112,7 +112,7 @@ final class UserController extends AbstractController
             null,
             true, // set to true in production
             true,
-            Cookie::SAMESITE_LAX
+            Cookie::SAMESITE_NONE
         );
         $response->headers->clearCookie(
             'refresh_token',
@@ -120,7 +120,7 @@ final class UserController extends AbstractController
             null,
             true, // set to true in production
             true,
-            Cookie::SAMESITE_LAX
+            Cookie::SAMESITE_NONE
         );
         return $response;
     }
