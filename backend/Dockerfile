@@ -9,8 +9,7 @@ RUN apk add --no-cache \
     && docker-php-ext-install \
     pdo_mysql \
     intl \
-    zip \
-    opcache
+    zip
 
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
