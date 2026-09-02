@@ -496,7 +496,6 @@ export default function ViewerCanvas({
               const isSelected = Number(selectedNodeId) === Number(node.id);
               const isRoute = routeNodes.has(Number(node.id));
               const fill = getNodeFill(node.type, isRoute, isSelected);
-              const label = node.externalIdentifier || node.name;
               const nodeGeometry = nodeGeometryToLocalPoints(node);
               const isCurrentLevelNode = activeFloorNumber === null || Number(node.floorNumber) === Number(activeFloorNumber);
 
@@ -537,18 +536,6 @@ export default function ViewerCanvas({
                     shadowColor="rgba(0,0,0,0.32)"
                     shadowBlur={8}
                   />
-                  {isSelected ? (
-                    <Label x={nodeRadius + labelPadding} y={-labelFontSize} opacity={0.96} listening={false}>
-                      <Tag fill="#ffffff" stroke="#d6ded9" strokeWidth={nodeStrokeWidth * 0.5} cornerRadius={3} />
-                      <Text
-                        text={label}
-                        fill="#18211f"
-                        padding={labelPadding}
-                        fontSize={labelFontSize}
-                        fontStyle="bold"
-                      />
-                    </Label>
-                  ) : null}
                 </Group>
               );
             })}
@@ -573,6 +560,30 @@ export default function ViewerCanvas({
                     fill="#18211f"
                     padding={buildingLabelPadding}
                     fontSize={buildingLabelFontSize}
+                    fontStyle="bold"
+                  />
+                </Label>
+              );
+            })}
+
+            {visibleNodes.map((node) => {
+              const isSelected = Number(selectedNodeId) === Number(node.id);
+              if (!isSelected) return null;
+              const label = node.externalIdentifier || node.name;
+              return (
+                <Label
+                  key={`${node.id}-selected-label`}
+                  x={Number(node.xCoord || 0) + nodeRadius + labelPadding}
+                  y={Number(node.yCoord || 0) - labelFontSize}
+                  opacity={0.98}
+                  listening={false}
+                >
+                  <Tag fill="#ffffff" stroke="#d6ded9" strokeWidth={nodeStrokeWidth * 0.5} cornerRadius={3} />
+                  <Text
+                    text={label}
+                    fill="#18211f"
+                    padding={labelPadding}
+                    fontSize={labelFontSize}
                     fontStyle="bold"
                   />
                 </Label>

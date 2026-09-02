@@ -25,6 +25,7 @@ import { Circle, Group, Image as KonvaImage, Label, Layer, Line, Rect, Stage, Ta
 import * as editorApi from '../api/editorApi';
 import * as organizationApi from '../api/organizationApi';
 import * as routeApi from '../api/routeApi';
+import { useMapForgeWebMcp } from '../agent/webmcp/useMapForgeWebMcp';
 import { LocationSearchBox } from '../components/viewer/RoutePlanner';
 import AppTopbar from '../components/common/AppTopbar';
 import ConfirmModal from '../components/common/ConfirmModal';
@@ -50,6 +51,7 @@ import {
   routeNodeSet,
 } from '../domain/mapModel';
 import * as mapApi from '../api/mapApi';
+import useAuth from '../hooks/useAuth';
 
 const ALL_NODE_TYPES = ['ROOM', 'CORRIDOR_POINT', 'ENTRANCE', 'EXIT', 'STAIR', 'ELEVATOR', 'RESTROOM', 'CAFETERIA', 'OFFICE', 'PATH', 'INTERSECTION', 'GATE', 'COURTYARD', 'LANDMARK'];
 const MIN_SCALE = 0.08;
@@ -615,6 +617,7 @@ function EditorCanvas({
   const selectionRectRef = useRef(null);
   const drawPreviewCircleRef = useRef(null);
   const nodePreviewCircleRef = useRef(null);
+  const [draggingNodeId, setDraggingNodeId] = useState(null);
   const stageSize = useMemo(() => (
     size.width && size.height ? size : { width: 900, height: 640 }
   ), [size]);
@@ -1331,12 +1334,18 @@ function EditorCanvas({
                   y={cleanNumber(node.yCoord)}
                   draggable={(tool === 'select' || tool === 'pan') && isSelected && selected?.kind !== 'selection'}
                   mapElementSelected={isSelected && selected?.kind !== 'selection'}
-                  onDragStart={(event) => moveKonvaNodeToLayer(event.target, dragLayerRef.current)}
+                  onDragStart={(event) => {
+                    setDraggingNodeId(node.id);
+                    moveKonvaNodeToLayer(event.target, dragLayerRef.current);
+                    event.target.moveToTop();
+                    event.target.getLayer()?.batchDraw();
+                  }}
                   onDragEnd={(event) => {
                     moveKonvaNodeToLayer(event.target, mainLayerRef.current);
                     const point = clampPointToCanvas({ x: event.target.x(), y: event.target.y() }, canvas);
                     onNodeDragEnd(node.id, { xCoord: point.x, yCoord: point.y });
                     event.target.position(point);
+                    setDraggingNodeId(null);
                   }}
                   onClick={(event) => {
                     event.cancelBubble = true;
@@ -1351,8 +1360,8 @@ function EditorCanvas({
                   }}
                 >
                   {isSelected || isConnectSource ? <Circle radius={nodeHaloRadius} fill={fill} opacity={0.18} listening={false} /> : null}
-                  <Circle radius={nodeRadius} fill={fill} opacity={isCurrentLevelNode || isSelected || isRoute ? 1 : 0.34} stroke={isCurrentLevelNode ? '#d8ebff' : '#9fb3c7'} strokeWidth={nodeStrokeWidth} shadowColor="rgba(0,0,0,0.32)" shadowBlur={8} />
-                  {(isSelected || isRoute || isConnectSource || tool === 'route') ? (
+                  <Circle radius={nodeRadius} fill={fill} opacity={isCurrentLevelNode || isSelected || isRoute ? 1 : 0.34} stroke={isCurrentLevelNode ? '#d8ebff' : '#9fb3c7'} strokeWidth={nodeStrokeWidth} shadowColor="rgba(0,0,0,0.32)" shadowBlur={isSelected ? 0 : 8} perfectDrawEnabled={false} shadowForStrokeEnabled={false} />
+                  {(!isSelected && (isRoute || isConnectSource || tool === 'route')) ? (
                   <Label x={nodeRadius + 7 / transform.scale} y={nodeRadius + 3 / transform.scale} listening={false}>
                     <Tag fill="#ffffff" stroke="#d6ded9" strokeWidth={1} cornerRadius={3} />
                     <Text text={node.externalIdentifier || node.name} fill="#18211f" padding={5 / transform.scale} fontSize={labelFontSize} fontStyle="bold" />
@@ -1371,6 +1380,23 @@ function EditorCanvas({
                 <Label key={`building-label-${building.id}`} x={labelPoint.x + buildingLabelFontSize} y={labelPoint.y + buildingLabelFontSize} listening={false}>
                   <Tag fill="#f8fbfa" cornerRadius={3} opacity={0.94} />
                   <Text text={building.name} fill="#1a2220" fontSize={buildingLabelFontSize} fontStyle="bold" padding={buildingLabelPadding} />
+                </Label>
+              );
+            })}
+
+            {visibleNodes.map((node) => {
+              const isSelected = (selected?.kind === 'node' && Number(selected.id) === Number(node.id)) || selectedNodeIds.has(Number(node.id));
+              if (!isSelected || Number(draggingNodeId) === Number(node.id)) return null;
+              return (
+                <Label
+                  key={`selected-node-label-${node.id}`}
+                  x={cleanNumber(node.xCoord) + nodeRadius + 7 / transform.scale}
+                  y={cleanNumber(node.yCoord) + nodeRadius + 3 / transform.scale}
+                  listening={false}
+                  opacity={0.98}
+                >
+                  <Tag fill="#ffffff" stroke="#d6ded9" strokeWidth={1} cornerRadius={3} />
+                  <Text text={node.externalIdentifier || node.name} fill="#18211f" padding={5 / transform.scale} fontSize={labelFontSize} fontStyle="bold" />
                 </Label>
               );
             })}
@@ -1720,6 +1746,7 @@ function FloorPopover({ building, onCreate, onCancel }) {
 export default function AdminEditorPage() {
   const { organizationId } = useParams();
   const navigate = useNavigate();
+  const { isAdmin } = useAuth();
   const [organization, setOrganization] = useState(null);
   const [buildings, setBuildings] = useState([]);
   const [floors, setFloors] = useState([]);
@@ -1769,6 +1796,27 @@ export default function AdminEditorPage() {
   }), [organization?.canvasHeight, organization?.canvasWidth]);
   const allEdges = useMemo(() => collectUniqueEdges(floors), [floors]);
   const nodeIndex = useMemo(() => buildNodeIndex(floors), [floors]);
+  const webMcpContext = useMemo(() => ({
+    organizationId,
+    organization,
+    buildings,
+    floors,
+    activeBuilding,
+    activeFloor,
+    isAdmin,
+    canEdit: isAdmin,
+    setOrganization,
+    setBuildings,
+    setFloors,
+    setActiveBuildingId,
+    setActiveFloorId,
+    setSelected,
+    setCurrentRoute,
+  }), [activeBuilding, activeFloor, buildings, floors, isAdmin, organization, organizationId]);
+  const {
+    confirmationModal: webMcpConfirmationModal,
+    activityIndicator: webMcpActivityIndicator,
+  } = useMapForgeWebMcp(webMcpContext);
 
   async function loadEditor() {
     setLoading(true);
@@ -2719,6 +2767,12 @@ export default function AdminEditorPage() {
   }
 
   function focusSearchResult(result) {
+    if (result.kind === 'building') {
+      selectBuilding(result.id);
+      setSearchSelection(result);
+      return;
+    }
+
     const node = getNodeById(floors, result.id) || result;
     if (node.floorId) setActiveFloorId(node.floorId);
     if (node.buildingId) setActiveBuildingId(node.buildingId);
@@ -2857,6 +2911,7 @@ export default function AdminEditorPage() {
                         onLocationSelected={focusSearchResult}
                         displaySelectedInInput
                         hideSelectedLocation
+                        includeBuildings
                       />
                     </div>
                     {tool === 'connect' && connectSourceId ? (
@@ -2906,6 +2961,8 @@ export default function AdminEditorPage() {
           ) : null}
         </ConfirmModal>
       ) : null}
+      {webMcpConfirmationModal}
+      {webMcpActivityIndicator}
       {showSaveFlag ? <div className={`saveFlag saveFlag-${saveState}`}>
         {isSaving ? 'Saving...' : saveState === 'error' ? 'Save needs attention' : 'Map saved'}
       </div> : null}

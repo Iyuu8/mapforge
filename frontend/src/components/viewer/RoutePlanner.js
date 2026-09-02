@@ -2,11 +2,23 @@ import { useEffect, useState } from 'react';
 import { ArrowUpDown, LocateFixed, Milestone, Route } from 'lucide-react';
 import * as routeApi from '../../api/routeApi';
 import * as searchApi from '../../api/searchApi';
-import { groupRouteByFloor } from '../../domain/mapModel';
+import { NODE_TYPE_LABELS, groupRouteByFloor } from '../../domain/mapModel';
 import useDebouncedValue from '../../hooks/useDebouncedValue';
 import StatusMessage from '../common/StatusMessage';
 
-export function LocationSearchBox({ label, organizationId, selected, onSelect, onLocationSelected, displaySelectedInInput = false, hideSelectedLocation = false }) {
+function getLocationLabel(location) {
+  if (!location) return '';
+  if (location.kind === 'building') return location.name || `Building ${location.id}`;
+  return `${location.identifier || location.externalIdentifier || location.id} - ${location.name}`;
+}
+
+function getLocationTypeLabel(location) {
+  if (!location) return '';
+  if (location.kind === 'building') return 'Building';
+  return NODE_TYPE_LABELS[location.type] || String(location.type || 'Node').replace(/_/g, ' ').toLowerCase().replace(/(^|\s)\S/g, (letter) => letter.toUpperCase());
+}
+
+export function LocationSearchBox({ label, organizationId, selected, onSelect, onLocationSelected, displaySelectedInInput = false, hideSelectedLocation = false, includeBuildings = false }) {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -14,12 +26,13 @@ export function LocationSearchBox({ label, organizationId, selected, onSelect, o
   const [searched, setSearched] = useState(false);
   const [editingSelected, setEditingSelected] = useState(false);
   const debouncedQuery = useDebouncedValue(query, 300);
+  const minQueryLength = includeBuildings ? 1 : 2;
 
   useEffect(() => {
     let active = true;
 
     async function runSearch() {
-      if (debouncedQuery.trim().length < 2) {
+      if (debouncedQuery.trim().length < minQueryLength) {
         setResults([]);
         setError(null);
         setSearched(false);
@@ -32,6 +45,7 @@ export function LocationSearchBox({ label, organizationId, selected, onSelect, o
         const data = await searchApi.searchLocations({
           query: debouncedQuery.trim(),
           organizationId,
+          includeBuildings,
         });
         if (active) {
           setResults(Array.isArray(data) ? data : []);
@@ -48,7 +62,7 @@ export function LocationSearchBox({ label, organizationId, selected, onSelect, o
     return () => {
       active = false;
     };
-  }, [debouncedQuery, displaySelectedInInput, editingSelected, organizationId, selected]);
+  }, [debouncedQuery, displaySelectedInInput, editingSelected, includeBuildings, minQueryLength, organizationId, selected]);
 
   useEffect(() => {
     setEditingSelected(false);
@@ -58,7 +72,7 @@ export function LocationSearchBox({ label, organizationId, selected, onSelect, o
     setError(null);
   }, [selected]);
 
-  const selectedText = selected ? `${selected.identifier || selected.externalIdentifier || selected.id} - ${selected.name}` : '';
+  const selectedText = getLocationLabel(selected);
   const inputValue = displaySelectedInInput && selected && !editingSelected && query.length === 0 ? selectedText : query;
 
   return (
@@ -75,7 +89,7 @@ export function LocationSearchBox({ label, organizationId, selected, onSelect, o
           onBlur={() => {
             if (displaySelectedInInput && selected && query.length === 0) setEditingSelected(false);
           }}
-          placeholder={selected ? selectedText : 'Search room, entrance, facility'}
+          placeholder={selected ? selectedText : includeBuildings ? 'Search building, room, entrance' : 'Search room, entrance, facility'}
         />
       </label>
       {loading ? <small className="searchMeta">Searching...</small> : null}
@@ -96,7 +110,7 @@ export function LocationSearchBox({ label, organizationId, selected, onSelect, o
           {results.map((result) => (
             <button
               type="button"
-              key={result.id}
+              key={`${result.kind || 'node'}-${result.id}`}
               onClick={() => {
                 onSelect(result);
                 onLocationSelected?.(result);
@@ -105,9 +119,9 @@ export function LocationSearchBox({ label, organizationId, selected, onSelect, o
                 setResults([]);
               }}
             >
-              <span>{result.identifier || result.externalIdentifier || result.id}</span>
+              <span>{result.kind === 'building' ? 'Building' : result.identifier || result.externalIdentifier || result.id}</span>
               <strong>{result.name}</strong>
-              <small>{result.type}</small>
+              <small>{getLocationTypeLabel(result)}</small>
             </button>
           ))}
         </div>

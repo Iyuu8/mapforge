@@ -2,13 +2,14 @@ import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { LocateFixed, MousePointer2, Route } from 'lucide-react';
 import * as routeApi from '../api/routeApi';
+import { useMapForgeWebMcp } from '../agent/webmcp/useMapForgeWebMcp';
 import AppTopbar from '../components/common/AppTopbar';
 import StatusMessage from '../components/common/StatusMessage';
 import { LocationSearchBox } from '../components/viewer/RoutePlanner';
 import ViewerCanvas from '../components/viewer/ViewerCanvas';
 import ViewerSidebar from '../components/viewer/ViewerSidebar';
 import { MapProvider } from '../context/MapContext';
-import { NODE_TYPE_LABELS, formatRoutePath, getFloorForNode } from '../domain/mapModel';
+import { NODE_TYPE_LABELS, formatRoutePath, getFloorForNode, getFloorsForBuilding } from '../domain/mapModel';
 import useMap from '../hooks/useMap';
 
 function ViewerDetailsPanel({ selectedNode, activeBuilding, activeFloor, floors }) {
@@ -82,6 +83,21 @@ function PublicViewerContent() {
   const [routeLoading, setRouteLoading] = useState(false);
   const [routeError, setRouteError] = useState(null);
   const routePathText = useMemo(() => formatRoutePath(currentRoute, floors), [currentRoute, floors]);
+  const webMcpContext = useMemo(() => ({
+    organizationId,
+    organization,
+    buildings,
+    floors,
+    activeBuilding,
+    activeFloor,
+    isAdmin: false,
+    canEdit: false,
+    setCurrentRoute,
+  }), [activeBuilding, activeFloor, buildings, floors, organization, organizationId, setCurrentRoute]);
+  const {
+    confirmationModal: webMcpConfirmationModal,
+    activityIndicator: webMcpActivityIndicator,
+  } = useMapForgeWebMcp(webMcpContext);
 
   useEffect(() => {
     loadOrganizationMap(organizationId);
@@ -95,6 +111,16 @@ function PublicViewerContent() {
 
   function focusLocation(location) {
     if (!location?.id) return;
+    if (location.kind === 'building') {
+      const firstFloor = getFloorsForBuilding(floors, location.id)[0];
+      setActiveBuildingId(location.id);
+      if (firstFloor) setActiveFloorId(firstFloor.id);
+      setSelectedNodeId(null);
+      setSearchSelection(location);
+      setFocusedNodeId(null);
+      return;
+    }
+
     const floor = getFloorForNode(floors, location.id);
     if (floor) {
       setActiveBuildingId(floor.buildingId);
@@ -239,9 +265,9 @@ function PublicViewerContent() {
                     label="Search this map"
                     organizationId={organizationId}
                     selected={searchSelection}
-                    onSelect={(node) => {
-                      if (node) {
-                        focusLocation(node);
+                    onSelect={(location) => {
+                      if (location) {
+                        focusLocation(location);
                       } else {
                         setSearchSelection(null);
                         setSelectedNodeId(null);
@@ -250,6 +276,7 @@ function PublicViewerContent() {
                     onLocationSelected={focusLocation}
                     displaySelectedInInput
                     hideSelectedLocation
+                    includeBuildings
                   />
                 </div>
                 <div className="viewerRouteFields">
@@ -288,6 +315,8 @@ function PublicViewerContent() {
             <ViewerDetailsPanel selectedNode={selectedNode} activeBuilding={activeBuilding} activeFloor={activeFloor} floors={floors} />
           </section>
         )}
+        {webMcpConfirmationModal}
+        {webMcpActivityIndicator}
       </main>
     </div>
   );

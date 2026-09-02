@@ -1869,6 +1869,61 @@ input:focus {
   color: #ffd2d2;
 }
 
+.webMcpActivity {
+  position: fixed;
+  left: 50%;
+  bottom: 18px;
+  z-index: 58;
+  display: grid;
+  grid-template-columns: auto auto;
+  gap: 2px 10px;
+  max-width: min(420px, calc(100vw - 36px));
+  padding: 10px 13px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 8px;
+  color: #f8fbfa;
+  background: rgba(34, 39, 36, 0.96);
+  box-shadow: 0 16px 42px rgba(0, 0, 0, 0.34);
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.webMcpActivity span {
+  align-self: center;
+  padding: 3px 7px;
+  border-radius: 999px;
+  color: #10352f;
+  background: #9ce5d7;
+  font-size: 0.72rem;
+  font-weight: 950;
+  text-transform: uppercase;
+}
+
+.webMcpActivity strong {
+  align-self: center;
+  overflow: hidden;
+  font-size: 0.9rem;
+  font-weight: 950;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.webMcpActivity small {
+  grid-column: 1 / -1;
+  color: #bfccc7;
+  font-weight: 750;
+}
+
+.webMcpActivity-finished span {
+  color: #173621;
+  background: #9ee8b5;
+}
+
+.webMcpActivity-error span {
+  color: #3d1717;
+  background: #ffd2d2;
+}
+
 @media (max-width: 1180px) {
   .editorTopbar,
   .editorWorkspace {
