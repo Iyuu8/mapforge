@@ -1,25 +1,31 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import {
-  ArrowLeft,
+  ArrowUpDown,
   Building2,
-  ChevronRight,
-  Edit,
+  ChevronLeft,
+  Layers,
   LocateFixed,
-  Map,
-  Maximize2,
+  Milestone,
   MousePointer2,
   Route,
   Search,
+  Wrench,
+  X,
 } from 'lucide-react';
 import * as routeApi from '../api/routeApi';
 import { useMapForgeWebMcp } from '../agent/webmcp/useMapForgeWebMcp';
-import AppTopbar from '../components/common/AppTopbar';
+import BrandLogo from '../components/common/BrandLogo';
 import StatusMessage from '../components/common/StatusMessage';
 import { LocationSearchBox } from '../components/viewer/RoutePlanner';
 import ViewerCanvas from '../components/viewer/ViewerCanvas';
 import { MapProvider } from '../context/MapContext';
-import { NODE_TYPE_LABELS, formatRoutePath, getFloorForNode, getFloorsForBuilding } from '../domain/mapModel';
+import {
+  NODE_TYPE_LABELS,
+  formatRoutePath,
+  getFloorForNode,
+  getFloorsForBuilding,
+} from '../domain/mapModel';
 import useAuth from '../hooks/useAuth';
 import useMap from '../hooks/useMap';
 
@@ -36,6 +42,7 @@ function PublicViewerContent() {
     activeFloorNumber,
     activeFloorId,
     visibleFloors,
+    selectedNode,
     selectedNodeId,
     currentRoute,
     focusedNodeId,
@@ -57,8 +64,6 @@ function PublicViewerContent() {
   const [routePickStep, setRoutePickStep] = useState('source');
   const [routeLoading, setRouteLoading] = useState(false);
   const [routeError, setRouteError] = useState(null);
-  const [activeMainTab, setActiveMainTab] = useState('buildings'); // 'buildings' | 'maps' | 'details'
-  const [activeBuildingTab, setActiveBuildingTab] = useState('overview'); // 'overview' | 'floors' | 'map'
 
   const routePathText = useMemo(() => formatRoutePath(currentRoute, floors), [currentRoute, floors]);
 
@@ -175,7 +180,6 @@ function PublicViewerContent() {
     setRoutePickStep('source');
   }
 
-  // Filter buildings by search text
   const filteredBuildings = useMemo(() => {
     if (!buildingSearch.trim()) return buildings;
     const q = buildingSearch.toLowerCase();
@@ -184,112 +188,66 @@ function PublicViewerContent() {
     );
   }, [buildings, buildingSearch]);
 
-  const activeBuildingFloors = useMemo(
-    () => getFloorsForBuilding(floors, activeBuildingId),
-    [floors, activeBuildingId]
-  );
-
-  // Nodes / POIs on active floor
-  const currentFloorNodes = useMemo(() => {
-    if (!activeFloor?.nodes) return [];
-    return activeFloor.nodes.slice(0, 8);
-  }, [activeFloor]);
+  const activeBuildingFloors = useMemo(() => {
+    if (!activeBuildingId) return [];
+    return getFloorsForBuilding(floors, activeBuildingId);
+  }, [floors, activeBuildingId]);
 
   return (
-    <div className="appFrame viewerLayoutFrame">
-      <AppTopbar />
-
-      <main className="viewerDetailsPage">
-        {/* Breadcrumb Bar */}
-        <section className="viewerBreadcrumbBar">
-          <div className="breadcrumbTrail">
-            <Link to="/maps" className="breadcrumbLink">
-              <ArrowLeft size={16} />
-              <span>Organizations</span>
+    <div className="appFrame editorFrame publicViewerFrame">
+      <main className="editorPage publicViewerPage">
+        {/* CAD-Style Dark Topbar */}
+        <header className="editorTopbar">
+          <div className="editorBrandStrip">
+            <BrandLogo theme="dark" size="small" />
+            <span className="editorBrandSep">/</span>
+            <Link to="/maps" className="editorBackLink" title="Back to maps directory">
+              <ChevronLeft size={16} />
+              <span>Maps</span>
             </Link>
-            <ChevronRight size={14} className="breadcrumbSeparator" />
-            <span className="breadcrumbCurrent">{organization?.name || 'Campus'}</span>
-          </div>
-
-          {isAdmin && (
-            <Link
-              to={`/admin/maps/${organizationId}`}
-              className="button buttonGhost editCampusBtn"
-              title="Open map editor"
-            >
-              <Edit size={15} />
-              <span>Edit map</span>
-            </Link>
-          )}
-        </section>
-
-        {/* Campus Overview Header Card */}
-        <section className="campusHeroCard">
-          <div className="campusHeroThumb">
-            <img
-              src="/assets/campus_hero.jpg"
-              alt={organization?.name || 'Campus'}
-              onError={(e) => {
-                e.currentTarget.style.display = 'none';
-              }}
-            />
-          </div>
-
-          <div className="campusHeroBody">
-            <div className="campusHeroTitleRow">
-              <h1 className="campusHeroTitle">{organization?.name || 'ESI MAIN CAMPUS'}</h1>
-              <span className="campusHeroBadge">Campus</span>
-            </div>
-
-            <p className="campusHeroDesc">
-              {organization?.description ||
-                'Main campus of ESI, including classrooms, labs and administration.'}
-            </p>
-
-            <div className="campusHeroStats">
-              <div className="campusStatPill">
-                <Building2 size={16} className="statIconBlue" />
-                <span>
-                  <strong>{buildings.length || 12}</strong> Buildings
-                </span>
-              </div>
-              <div className="campusStatPill">
-                <Map size={16} className="statIconGreen" />
-                <span>
-                  <strong>{floors.length || 5}</strong> Maps
-                </span>
-              </div>
-              <div className="campusStatPill">
-                <Maximize2 size={16} className="statIconPurple" />
-                <span>
-                  <strong>{organization?.canvasWidth || 8000} &times; {organization?.canvasHeight || 6000}</strong> Canvas size
-                </span>
-              </div>
+            <span className="editorBrandSep">/</span>
+            <span className="editorMapTitle">{organization?.name || 'Campus Map'}</span>
+            <div className="editorSaveStatusBadge">
+              <span className="savePulseDot isSaved" />
+              <span>
+                {activeBuilding
+                  ? `${activeBuilding.name} • Level ${activeFloorNumber ?? 0}`
+                  : 'Campus Overview'}
+              </span>
             </div>
           </div>
-        </section>
 
-        {/* Navigation Tabs Bar */}
-        <div className="viewerTabsStrip">
-          <button
-            className={`viewerTabBtn ${activeMainTab === 'buildings' ? 'isActive' : ''}`}
-            onClick={() => setActiveMainTab('buildings')}
-          >
-            Buildings
-          </button>
-          <button
-            className={`viewerTabBtn ${activeMainTab === 'maps' ? 'isActive' : ''}`}
-            onClick={() => setActiveMainTab('maps')}
-          >
-            Maps
-          </button>
-          <button
-            className={`viewerTabBtn ${activeMainTab === 'details' ? 'isActive' : ''}`}
-            onClick={() => setActiveMainTab('details')}
-          >
-            Details
-          </button>
-        </div>
+          {/* Quick Floor Switcher in Header */}
+          <div className="editorContextStrip">
+            {activeBuildingFloors.map((floor) => (
+              <button
+                className={Number(activeFloorId) === Number(floor.id) ? 'isActive' : ''}
+                type="button"
+                key={floor.id}
+                onClick={() => {
+                  setActiveFloorId(floor.id);
+                  setSelectedNodeId(null);
+                }}
+              >
+                Level {floor.floorNumber ?? floor.name}
+              </button>
+            ))}
+          </div>
+
+          {/* Right Actions */}
+          <div className="editorActions">
+            {isAdmin && (
+              <Link
+                className="button buttonGhost editorPreviewBtn"
+                to={`/admin/maps/${organizationId}`}
+                title="Open CAD Editor"
+              >
+                <Wrench size={14} />
+                <span>Open CAD Editor</span>
+              </Link>
+            )}
+          </div>
+        </header>
 
         {error && (
           <StatusMessage title={error.code || 'Map failed to load'} tone="error">
@@ -298,288 +256,417 @@ function PublicViewerContent() {
         )}
 
         {loading ? (
-          <StatusMessage title="Loading campus map">
-            Fetching the published building and floor graph...
-          </StatusMessage>
+          <main className="centeredPage" style={{ flex: 1, display: 'grid', placeItems: 'center' }}>
+            <StatusMessage title="Loading campus map">
+              Fetching published building and floor layout...
+            </StatusMessage>
+          </main>
         ) : (
-          /* Master-Detail Layout */
-          <div className="viewerMasterDetailLayout">
-            {/* Left: Buildings Directory */}
-            <aside className="buildingsDirectoryCol">
-              <div className="buildingsSearchBox">
-                <Search size={15} className="searchIcon" />
-                <input
-                  type="text"
-                  placeholder="Search buildings..."
-                  value={buildingSearch}
-                  onChange={(e) => setBuildingSearch(e.target.value)}
-                />
+          <section className="editorWorkspace viewerWorkspaceDark">
+            {/* Left Sidebar: Buildings & Floors Browser */}
+            <aside className="editorSidebar viewerDarkSidebar">
+              <div className="panelHeader" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Building2 size={16} />
+                <h2 style={{ fontSize: '0.95rem', fontWeight: 800, margin: 0, color: 'white' }}>Buildings &amp; Floors</h2>
               </div>
 
-              <div className="buildingsList">
+              {/* Building Search Filter */}
+              <div className="editorSearchBox" style={{ position: 'relative' }}>
+                <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--dark-muted)' }} />
+                <input
+                  type="text"
+                  placeholder="Filter buildings..."
+                  value={buildingSearch}
+                  onChange={(e) => setBuildingSearch(e.target.value)}
+                  style={{
+                    width: '100%',
+                    paddingLeft: 30,
+                    paddingRight: 24,
+                    height: 34,
+                    borderRadius: 'var(--radius-sm)',
+                    background: '#0E1724',
+                    border: '1px solid var(--dark-border)',
+                    color: 'white',
+                    fontSize: '0.82rem',
+                  }}
+                />
+                {buildingSearch && (
+                  <button
+                    type="button"
+                    onClick={() => setBuildingSearch('')}
+                    style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: 'transparent', border: 'none', color: 'var(--dark-muted)', cursor: 'pointer', padding: 2 }}
+                  >
+                    <X size={12} />
+                  </button>
+                )}
+              </div>
+
+              {filteredBuildings.length === 0 ? (
+                <p className="emptyHint" style={{ color: 'var(--dark-muted)', fontSize: '0.82rem' }}>No matching buildings found.</p>
+              ) : null}
+
+              <div className="buildingTree" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {filteredBuildings.map((building) => {
-                  const isSelected = Number(building.id) === Number(activeBuildingId);
                   const buildingFloors = getFloorsForBuilding(floors, building.id);
-                  const firstFloor = buildingFloors[0];
+                  const isActiveBuilding = Number(activeBuildingId) === Number(building.id);
 
                   return (
-                    <div
-                      key={building.id}
-                      className={`buildingListItem ${isSelected ? 'isActive' : ''}`}
-                      onClick={() => handleSelectBuilding(building.id)}
-                    >
-                      <div className="buildingThumbMini">
-                        <img
-                          src="/assets/building_thumb.jpg"
-                          alt={building.name}
-                          onError={(e) => {
-                            e.currentTarget.style.display = 'none';
+                    <section className="treeBuilding" key={building.id} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                      <button
+                        className={`treeBuildingButton ${isActiveBuilding ? 'isActive' : ''}`}
+                        type="button"
+                        onClick={() => handleSelectBuilding(building.id)}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 10,
+                          width: '100%',
+                          padding: '8px 10px',
+                          borderRadius: 'var(--radius-sm)',
+                          border: isActiveBuilding ? '1px solid var(--primary)' : '1px solid transparent',
+                          background: isActiveBuilding ? 'rgba(13, 92, 70, 0.25)' : 'rgba(255, 255, 255, 0.04)',
+                          color: isActiveBuilding ? '#FFFFFF' : '#94A3B8',
+                          cursor: 'pointer',
+                          textAlign: 'left',
+                          fontWeight: 700,
+                          fontSize: '0.86rem',
+                          transition: 'all 0.15s ease',
+                        }}
+                      >
+                        <span
+                          className="buildingColor"
+                          style={{
+                            width: 10,
+                            height: 10,
+                            borderRadius: '50%',
+                            backgroundColor: building.color || '#10B981',
+                            flexShrink: 0,
                           }}
+                          aria-hidden="true"
                         />
-                      </div>
-                      <div className="buildingListItemMeta">
-                        <h4 className="buildingListItemName">{building.name}</h4>
-                        <span className="buildingListItemSub">
-                          Level {firstFloor?.floorNumber ?? 0} &bull; {buildingFloors.length} {buildingFloors.length === 1 ? 'floor' : 'floors'}
+                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
+                          {building.name}
                         </span>
-                      </div>
-                      {isSelected && <div className="activeBuildingIndicator" />}
-                    </div>
+                        <span style={{ fontSize: '0.72rem', opacity: 0.7 }}>
+                          {buildingFloors.length} {buildingFloors.length === 1 ? 'fl' : 'fls'}
+                        </span>
+                      </button>
+
+                      {isActiveBuilding && (
+                        <div className="floorList" style={{ paddingLeft: 18, display: 'flex', flexDirection: 'column', gap: 3 }}>
+                          {buildingFloors.length === 0 ? (
+                            <p className="emptyHint" style={{ fontSize: '0.78rem', color: 'var(--dark-muted)', margin: '4px 0' }}>No floors yet.</p>
+                          ) : null}
+                          {buildingFloors.map((floor) => (
+                            <button
+                              className={`floorButton ${Number(activeFloorId) === Number(floor.id) ? 'isActive' : ''}`}
+                              type="button"
+                              key={floor.id}
+                              onClick={() => {
+                                setActiveFloorId(floor.id);
+                                setSelectedNodeId(null);
+                              }}
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                padding: '5px 10px',
+                                borderRadius: 'var(--radius-sm)',
+                                border: 'none',
+                                background: Number(activeFloorId) === Number(floor.id) ? 'var(--primary)' : 'transparent',
+                                color: Number(activeFloorId) === Number(floor.id) ? '#FFFFFF' : '#94A3B8',
+                                fontSize: '0.8rem',
+                                fontWeight: 600,
+                                cursor: 'pointer',
+                                textAlign: 'left',
+                                transition: 'all 0.15s ease',
+                              }}
+                            >
+                              <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                <Layers size={13} />
+                                <span>{floor.name}</span>
+                              </span>
+                              <small style={{ opacity: 0.8 }}>Level {floor.floorNumber ?? 0}</small>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </section>
                   );
                 })}
               </div>
             </aside>
 
-            {/* Right: Building Detail & Interactive Floorplan Preview */}
-            <section className="buildingDetailCol">
-              <div className="buildingDetailCard">
-                {/* Building Header */}
-                <div className="buildingDetailHeader">
-                  <div>
-                    <h2 className="buildingDetailTitle">
-                      {activeBuilding?.name || 'A1 - Administration'}
-                    </h2>
-                    <span className="buildingLevelBadge">
-                      Level {activeFloorNumber ?? 0} &bull; {activeBuildingFloors.length} Floors
+            {/* Center: Canvas Stage */}
+            <div className="canvasStage">
+              <ViewerCanvas
+                organization={organization}
+                buildings={buildings}
+                floors={floors}
+                activeFloor={activeFloor}
+                visibleFloors={visibleFloors}
+                activeFloorNumber={activeFloorNumber}
+                activeBuildingId={activeBuildingId}
+                selectedNodeId={selectedNodeId}
+                focusedNodeId={focusedNodeId}
+                route={currentRoute}
+                tool={tool}
+                routePickStep={routePickStep}
+                onSelectNode={(nodeId, node) => {
+                  if (tool === 'route' && node) {
+                    handleRoutePickNode(node);
+                    return;
+                  }
+                  setSelectedNodeId(nodeId);
+                  setSearchSelection(node || null);
+                  if (tool === 'pan') setTool('select');
+                }}
+                onSelectBuilding={(buildingId) => {
+                  handleSelectBuilding(buildingId);
+                  if (tool === 'pan') setTool('select');
+                }}
+                onFocusHandled={() => setFocusedNodeId(null)}
+              />
+
+              {/* Floating Canvas Overlays */}
+              <div className="viewerCanvasOverlay">
+                {/* Floating CAD Tool Cluster */}
+                <div className="viewerToolCluster" aria-label="Map tools">
+                  <button
+                    className={`toolButton ${tool === 'select' ? 'isActive' : ''}`}
+                    type="button"
+                    onClick={() => setViewerTool('select')}
+                    title="Select mode"
+                  >
+                    <MousePointer2 size={16} />
+                  </button>
+                  <button
+                    className={`toolButton ${tool === 'pan' ? 'isActive' : ''}`}
+                    type="button"
+                    onClick={() => setViewerTool('pan')}
+                    title="Pan map"
+                  >
+                    <LocateFixed size={16} />
+                  </button>
+                  <button
+                    className={`toolButton ${tool === 'route' ? 'isActive' : ''}`}
+                    type="button"
+                    onClick={() => setViewerTool('route')}
+                    title="Find route / directions"
+                  >
+                    <Route size={16} />
+                  </button>
+                </div>
+
+                {/* Floating Search Bar */}
+                <div className="viewerSearchFloat">
+                  <LocationSearchBox
+                    label="Search map"
+                    organizationId={organizationId}
+                    selected={searchSelection}
+                    onSelect={(location) => {
+                      if (location) {
+                        focusLocation(location);
+                      } else {
+                        setSearchSelection(null);
+                        setSelectedNodeId(null);
+                      }
+                    }}
+                    onLocationSelected={focusLocation}
+                    displaySelectedInInput
+                    hideSelectedLocation
+                    includeBuildings
+                  />
+                </div>
+
+                {/* Route Fields (when in route mode) */}
+                {tool === 'route' && (
+                  <div className="viewerRouteFields">
+                    <LocationSearchBox
+                      label="Origin"
+                      organizationId={organizationId}
+                      selected={source}
+                      onSelect={setSource}
+                      onLocationSelected={focusLocation}
+                      displaySelectedInInput
+                      hideSelectedLocation
+                    />
+                    <button
+                      type="button"
+                      className="toolButton"
+                      style={{ alignSelf: 'flex-end', marginBottom: 2 }}
+                      onClick={() => {
+                        const temp = source;
+                        setSource(destination);
+                        setDestination(temp);
+                      }}
+                      title="Swap start and destination"
+                      disabled={!source && !destination}
+                    >
+                      <ArrowUpDown size={15} />
+                    </button>
+                    <LocationSearchBox
+                      label="Destination"
+                      organizationId={organizationId}
+                      selected={destination}
+                      onSelect={setDestination}
+                      onLocationSelected={focusLocation}
+                      displaySelectedInInput
+                      hideSelectedLocation
+                    />
+                  </div>
+                )}
+
+                {tool === 'route' && (
+                  <div className="viewerRouteHint">
+                    {routePickStep === 'source'
+                      ? 'Click the route starting node on the canvas'
+                      : 'Click the route destination node on the canvas'}
+                  </div>
+                )}
+
+                {routeError && (
+                  <div className="viewerRouteHint viewerRouteError">
+                    {routeError.message || 'No pathway found between these points.'}
+                  </div>
+                )}
+
+                {routeLoading && (
+                  <div className="viewerRouteHint viewerRouteLoading">
+                    Finding optimal pathway...
+                  </div>
+                )}
+
+                {currentRoute && (
+                  <div className="routeSegmentDock viewerRouteDock">
+                    <strong>{currentRoute.totalDistance}m total distance</strong>
+                    <span>{routePathText}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Right Inspector Panel */}
+            <aside className="inspectorPanel viewerInspectorPanel">
+              <div className="panelHeader" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <MousePointer2 size={16} />
+                <h2 style={{ fontSize: '0.95rem', fontWeight: 800, margin: 0, color: 'white' }}>Location Details</h2>
+              </div>
+
+              {selectedNode ? (
+                <div className="propertyList" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  <div className="inspectorField">
+                    <label>Name</label>
+                    <strong style={{ color: 'white', fontSize: '0.92rem' }}>{selectedNode.name || 'Unnamed node'}</strong>
+                  </div>
+                  <div className="inspectorField">
+                    <label>Identifier</label>
+                    <span style={{ color: 'var(--dark-muted)', fontSize: '0.86rem' }}>
+                      {selectedNode.externalIdentifier || selectedNode.identifier || selectedNode.id}
+                    </span>
+                  </div>
+                  <div className="inspectorField">
+                    <label>Category</label>
+                    <span style={{ color: '#38BDF8', fontSize: '0.86rem', fontWeight: 600 }}>
+                      {NODE_TYPE_LABELS[selectedNode.type] || selectedNode.type || 'Point of Interest'}
+                    </span>
+                  </div>
+                  <div className="inspectorField">
+                    <label>Building &amp; Floor</label>
+                    <span style={{ color: 'white', fontSize: '0.86rem' }}>
+                      {activeBuilding?.name || 'Campus'} • {activeFloor?.name || `Level ${activeFloorNumber ?? 0}`}
                     </span>
                   </div>
 
-                  {/* Level Switcher */}
-                  {activeBuildingFloors.length > 0 && (
-                    <div className="floorLevelSelector">
-                      {activeBuildingFloors.map((fl) => (
-                        <button
-                          key={fl.id}
-                          className={`floorPillBtn ${Number(activeFloorId) === Number(fl.id) ? 'isActive' : ''}`}
-                          onClick={() => {
-                            setActiveFloorId(fl.id);
-                            setSelectedNodeId(null);
-                          }}
-                        >
-                          Level {fl.floorNumber ?? fl.name}
-                        </button>
-                      ))}
+                  {/* Real Direction Actions */}
+                  <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    <button
+                      className="button buttonGhost"
+                      type="button"
+                      onClick={() => {
+                        setSource(selectedNode);
+                        setViewerTool('route');
+                        setRoutePickStep('destination');
+                      }}
+                      style={{
+                        width: '100%',
+                        fontSize: '0.84rem',
+                        justifyContent: 'flex-start',
+                        background: 'rgba(255, 255, 255, 0.06)',
+                        borderColor: 'rgba(255, 255, 255, 0.12)',
+                        color: 'white',
+                      }}
+                    >
+                      <Route size={14} />
+                      <span>Directions from here</span>
+                    </button>
+                    <button
+                      className="button buttonGhost"
+                      type="button"
+                      onClick={() => {
+                        setDestination(selectedNode);
+                        setViewerTool('route');
+                        if (!source) setRoutePickStep('source');
+                      }}
+                      style={{
+                        width: '100%',
+                        fontSize: '0.84rem',
+                        justifyContent: 'flex-start',
+                        background: 'rgba(255, 255, 255, 0.06)',
+                        borderColor: 'rgba(255, 255, 255, 0.12)',
+                        color: 'white',
+                      }}
+                    >
+                      <Milestone size={14} />
+                      <span>Directions to here</span>
+                    </button>
+                    <button
+                      className="button buttonSubtle"
+                      type="button"
+                      onClick={() => {
+                        setSelectedNodeId(null);
+                        setSearchSelection(null);
+                      }}
+                      style={{ width: '100%', fontSize: '0.82rem', marginTop: 4 }}
+                    >
+                      <span>Clear selection</span>
+                    </button>
+                  </div>
+                </div>
+              ) : activeBuilding ? (
+                <div className="propertyList" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  <div className="inspectorField">
+                    <label>Building Name</label>
+                    <strong style={{ color: 'white', fontSize: '0.96rem' }}>{activeBuilding.name}</strong>
+                  </div>
+                  {activeBuilding.description && (
+                    <div className="inspectorField">
+                      <label>Description</label>
+                      <p style={{ margin: 0, color: 'var(--dark-muted)', fontSize: '0.86rem', lineHeight: 1.5 }}>
+                        {activeBuilding.description}
+                      </p>
                     </div>
                   )}
-                </div>
-
-                {/* Sub-Tabs: Overview | Floors | Map view */}
-                <div className="buildingSubTabs">
-                  <button
-                    className={`subTabBtn ${activeBuildingTab === 'overview' ? 'isActive' : ''}`}
-                    onClick={() => setActiveBuildingTab('overview')}
-                  >
-                    Overview
-                  </button>
-                  <button
-                    className={`subTabBtn ${activeBuildingTab === 'floors' ? 'isActive' : ''}`}
-                    onClick={() => setActiveBuildingTab('floors')}
-                  >
-                    Floors
-                  </button>
-                  <button
-                    className={`subTabBtn ${activeBuildingTab === 'map' ? 'isActive' : ''}`}
-                    onClick={() => setActiveBuildingTab('map')}
-                  >
-                    Map view
-                  </button>
-                </div>
-
-                {/* Building Description & POIs */}
-                <div className="buildingOverviewSection">
-                  <h4 className="overviewSubheading">Description</h4>
-                  <p className="buildingOverviewText">
-                    {activeBuilding?.description ||
-                      'Main administration and academic building with offices, reception, classrooms and conference rooms.'}
-                  </p>
-
-                  <h4 className="overviewSubheading">Points of interest</h4>
-                  <div className="poiList">
-                    {currentFloorNodes.length > 0 ? (
-                      currentFloorNodes.map((node) => (
-                        <div
-                          key={node.id}
-                          className={`poiItem ${selectedNodeId === node.id ? 'isSelected' : ''}`}
-                          onClick={() => {
-                            setSelectedNodeId(node.id);
-                            setFocusedNodeId(node.id);
-                          }}
-                        >
-                          <span className="poiRadioDot" />
-                          <span className="poiName">
-                            {node.name || node.externalIdentifier || NODE_TYPE_LABELS[node.type] || 'Location'}
-                          </span>
-                        </div>
-                      ))
-                    ) : (
-                      <>
-                        <div className="poiItem">
-                          <span className="poiRadioDot" />
-                          <span className="poiName">Reception & Information Desk</span>
-                        </div>
-                        <div className="poiItem">
-                          <span className="poiRadioDot" />
-                          <span className="poiName">Faculty Offices</span>
-                        </div>
-                        <div className="poiItem">
-                          <span className="poiRadioDot" />
-                          <span className="poiName">Main Meeting Room</span>
-                        </div>
-                      </>
-                    )}
+                  <div className="inspectorField">
+                    <label>Current Floor</label>
+                    <span style={{ color: '#38BDF8', fontSize: '0.86rem', fontWeight: 600 }}>
+                      {activeFloor?.name || `Level ${activeFloorNumber ?? 0}`}
+                    </span>
+                  </div>
+                  <div className="inspectorField">
+                    <label>Published Floors</label>
+                    <span style={{ color: 'white', fontSize: '0.86rem' }}>
+                      {activeBuildingFloors.length} {activeBuildingFloors.length === 1 ? 'floor' : 'floors'}
+                    </span>
                   </div>
                 </div>
-
-                {/* Floorplan 2D Canvas Stage */}
-                <div className="interactiveFloorplanStage">
-                  <ViewerCanvas
-                    organization={organization}
-                    buildings={buildings}
-                    floors={floors}
-                    activeFloor={activeFloor}
-                    visibleFloors={visibleFloors}
-                    activeFloorNumber={activeFloorNumber}
-                    activeBuildingId={activeBuildingId}
-                    selectedNodeId={selectedNodeId}
-                    focusedNodeId={focusedNodeId}
-                    route={currentRoute}
-                    tool={tool}
-                    routePickStep={routePickStep}
-                    onSelectNode={(nodeId, node) => {
-                      if (tool === 'route' && node) {
-                        handleRoutePickNode(node);
-                        return;
-                      }
-                      setSelectedNodeId(nodeId);
-                      setSearchSelection(node || null);
-                      if (tool === 'pan') setTool('select');
-                    }}
-                    onSelectBuilding={(buildingId) => {
-                      handleSelectBuilding(buildingId);
-                      if (tool === 'pan') setTool('select');
-                    }}
-                    onFocusHandled={() => setFocusedNodeId(null)}
-                  />
-
-                  {/* Canvas Floating Overlay Controls */}
-                  <div className="viewerCanvasOverlay">
-                    <div className="viewerToolCluster" aria-label="Map tools">
-                      <button
-                        className={`toolButton ${tool === 'select' ? 'isActive' : ''}`}
-                        type="button"
-                        onClick={() => setViewerTool('select')}
-                        title="Select mode"
-                      >
-                        <MousePointer2 size={16} />
-                      </button>
-                      <button
-                        className={`toolButton ${tool === 'pan' ? 'isActive' : ''}`}
-                        type="button"
-                        onClick={() => setViewerTool('pan')}
-                        title="Pan canvas"
-                      >
-                        <LocateFixed size={16} />
-                      </button>
-                      <button
-                        className={`toolButton ${tool === 'route' ? 'isActive' : ''}`}
-                        type="button"
-                        onClick={() => setViewerTool('route')}
-                        title="Find route"
-                      >
-                        <Route size={16} />
-                      </button>
-                    </div>
-
-                    <div className="viewerSearchFloat">
-                      <LocationSearchBox
-                        label="Search this map"
-                        organizationId={organizationId}
-                        selected={searchSelection}
-                        onSelect={(location) => {
-                          if (location) {
-                            focusLocation(location);
-                          } else {
-                            setSearchSelection(null);
-                            setSelectedNodeId(null);
-                          }
-                        }}
-                        onLocationSelected={focusLocation}
-                        displaySelectedInInput
-                        hideSelectedLocation
-                        includeBuildings
-                      />
-                    </div>
-
-                    <div className="viewerRouteFields">
-                      <LocationSearchBox
-                        label="Origin"
-                        organizationId={organizationId}
-                        selected={source}
-                        onSelect={setSource}
-                        onLocationSelected={focusLocation}
-                        displaySelectedInInput
-                        hideSelectedLocation
-                      />
-                      <LocationSearchBox
-                        label="Destination"
-                        organizationId={organizationId}
-                        selected={destination}
-                        onSelect={setDestination}
-                        onLocationSelected={focusLocation}
-                        displaySelectedInInput
-                        hideSelectedLocation
-                      />
-                    </div>
-
-                    {tool === 'route' && (
-                      <div className="viewerRouteHint">
-                        {routePickStep === 'source'
-                          ? 'Click the starting node on the canvas'
-                          : 'Click the destination node on the canvas'}
-                      </div>
-                    )}
-                    {routeError && (
-                      <div className="viewerRouteHint viewerRouteError">
-                        {routeError.message || 'No route found between selected points.'}
-                      </div>
-                    )}
-                    {routeLoading && (
-                      <div className="viewerRouteHint viewerRouteLoading">
-                        Calculating optimal path...
-                      </div>
-                    )}
-
-                    {currentRoute && (
-                      <div className="routeSegmentDock viewerRouteDock">
-                        <strong>{currentRoute.totalDistance}m total distance</strong>
-                        <span>{routePathText}</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </section>
-          </div>
+              ) : (
+                <p className="emptyHint" style={{ color: 'var(--dark-muted)', fontSize: '0.86rem', lineHeight: 1.5 }}>
+                  Click any building, room, or entrance on the map to view details and get directions.
+                </p>
+              )}
+            </aside>
+          </section>
         )}
 
         {webMcpConfirmationModal}

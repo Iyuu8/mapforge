@@ -1,8 +1,12 @@
 import { Link } from 'react-router-dom';
-import { ArrowRight, Building2, Compass, Layers, MapPin, Sparkles } from 'lucide-react';
+import { ArrowRight, Building2, Compass, Layers, MapPin, Sparkles, Wrench } from 'lucide-react';
 import AppTopbar from '../components/common/AppTopbar';
+import useAuth from '../hooks/useAuth';
 
 export default function LandingPage() {
+  const { isAdmin, isAuthenticated } = useAuth();
+  const adminTarget = isAuthenticated && isAdmin ? '/admin' : '/login';
+
   return (
     <div className="appFrame landingLayoutFrame">
       <AppTopbar />
@@ -28,9 +32,9 @@ export default function LandingPage() {
               <span>Browse Campus Maps</span>
               <ArrowRight size={17} />
             </Link>
-            <Link className="button buttonGhost landingSecondaryBtn" to="/login">
-              <Building2 size={19} />
-              <span>Admin Workspace</span>
+            <Link className="button buttonGhost landingSecondaryBtn" to={adminTarget}>
+              {isAuthenticated && isAdmin ? <Wrench size={19} /> : <Building2 size={19} />}
+              <span>{isAuthenticated && isAdmin ? 'Admin Workspace' : 'Admin Sign In'}</span>
             </Link>
           </div>
 

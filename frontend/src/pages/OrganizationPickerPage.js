@@ -2,12 +2,12 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
   ArrowRight,
-  Bell,
   Building,
   Building2,
   Calendar,
+  Compass,
+  Eye,
   Home,
-  Layers,
   LogOut,
   Map,
   Maximize2,
@@ -15,7 +15,6 @@ import {
   Plus,
   Rocket,
   Search,
-  Settings,
   Trash2,
   Wrench,
   X,
@@ -34,7 +33,7 @@ const emptyNewOrg = {
 };
 
 export default function OrganizationPickerPage({ mode }) {
-  const { isAdmin, user, signOut } = useAuth();
+  const { isAdmin, isAuthenticated, user, signOut } = useAuth();
   const location = useLocation();
   const [organizations, setOrganizations] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -90,11 +89,12 @@ export default function OrganizationPickerPage({ mode }) {
   // Compute summary stats
   const totalOrgs = organizations.length;
   const totalBuildings = useMemo(() => {
-    return organizations.reduce((acc, org) => acc + (org.buildings?.length || org.buildingCount || 4), 0);
+    return organizations.reduce(
+      (acc, org) => acc + (org.buildingCount !== undefined ? org.buildingCount : (org.buildings?.length || 0)),
+      0
+    );
   }, [organizations]);
-  const totalMaps = useMemo(() => {
-    return organizations.reduce((acc, org) => acc + (org.mapCount || org.floors?.length || 2), 0);
-  }, [organizations]);
+  const totalMaps = totalOrgs;
 
   async function handleCreate(event) {
     event.preventDefault();
@@ -183,32 +183,29 @@ export default function OrganizationPickerPage({ mode }) {
             <Link
               to="/"
               className={`dashboardNavItem ${location.pathname === '/' ? 'isActive' : ''}`}
+              onClick={() => setMobileSidebarOpen(false)}
             >
               <Home size={18} />
               <span>Home</span>
             </Link>
             <Link
-              to={isAdmin ? '/admin' : '/maps'}
-              className={`dashboardNavItem isActive`}
-            >
-              <Building2 size={18} />
-              <span>Organizations</span>
-            </Link>
-            <Link
               to="/maps"
-              className={`dashboardNavItem ${location.pathname === '/maps' && !isAdminMode ? 'isActive' : ''}`}
+              className={`dashboardNavItem ${!isAdminMode && location.pathname === '/maps' ? 'isActive' : ''}`}
+              onClick={() => setMobileSidebarOpen(false)}
             >
               <Map size={18} />
-              <span>Maps</span>
+              <span>Browse Maps</span>
             </Link>
-            <div className="dashboardNavItem">
-              <Layers size={18} />
-              <span>Buildings</span>
-            </div>
-            <div className="dashboardNavItem">
-              <Settings size={18} />
-              <span>Settings</span>
-            </div>
+            {isAdmin && (
+              <Link
+                to="/admin"
+                className={`dashboardNavItem ${isAdminMode ? 'isActive' : ''}`}
+                onClick={() => setMobileSidebarOpen(false)}
+              >
+                <Wrench size={18} />
+                <span>Admin Workspace</span>
+              </Link>
+            )}
           </nav>
         </div>
 
@@ -218,10 +215,10 @@ export default function OrganizationPickerPage({ mode }) {
             <div className="userAvatarCircle">{userInitial}</div>
             <div className="userMeta">
               <span className="userName">{isAdmin ? 'Admin' : userName}</span>
-              <span className="userEmail">{user?.email || 'admin@mapforge.io'}</span>
+              <span className="userEmail">{user?.email || (isAuthenticated ? 'Signed in' : 'Guest viewer')}</span>
             </div>
           </div>
-          {user?.isAuthenticated && (
+          {isAuthenticated ? (
             <button
               className="dashboardSignOutBtn"
               type="button"
@@ -231,6 +228,15 @@ export default function OrganizationPickerPage({ mode }) {
             >
               <LogOut size={16} />
             </button>
+          ) : (
+            <Link
+              to="/login"
+              className="dashboardSignOutBtn"
+              title="Sign in"
+              aria-label="Sign in"
+            >
+              <ArrowRight size={16} />
+            </Link>
           )}
         </div>
       </aside>
@@ -269,9 +275,15 @@ export default function OrganizationPickerPage({ mode }) {
           </div>
 
           <div className="dashboardTopbarRight">
-            <button className="dashboardIconBtn" title="Notifications" aria-label="Notifications">
-              <Bell size={18} />
-            </button>
+            {isAdminMode && isAdmin && (
+              <button
+                className="button buttonPrimary createOrgTopBtn"
+                onClick={() => setCreateModalOpen(true)}
+              >
+                <Plus size={16} />
+                <span>New Organization</span>
+              </button>
+            )}
             <div className="dashboardUserPill">
               <div className="userAvatarCircle small">{userInitial}</div>
               <span className="userPillName">{isAdmin ? 'Admin' : userName}</span>
@@ -287,11 +299,15 @@ export default function OrganizationPickerPage({ mode }) {
               <p className="welcomeGreeting">
                 {greeting}, {isAdmin ? 'Admin' : userName} 👋
               </p>
-              <h1 className="welcomeTitle">Manage your organizations and campus maps.</h1>
+              <h1 className="welcomeTitle">
+                {isAdminMode
+                  ? 'Manage your organizations and campus maps.'
+                  : 'Explore interactive campus maps.'}
+              </h1>
               <p className="welcomeDescription">
                 {isAdminMode
                   ? 'Access CAD-grade floorplan authoring, manage indoor spaces, and publish navigation graphs.'
-                  : 'Browse navigable campus maps, locate buildings, and explore multi-floor paths.'}
+                  : 'Browse navigable campus maps, locate buildings, and explore multi-floor paths without signing in.'}
               </p>
             </div>
             <div className="welcomeBannerRight">
@@ -323,7 +339,7 @@ export default function OrganizationPickerPage({ mode }) {
                 <Building size={22} />
               </div>
               <div className="metricDetails">
-                <span className="metricValue">{totalBuildings || 12}</span>
+                <span className="metricValue">{totalBuildings}</span>
                 <span className="metricLabel">Buildings</span>
               </div>
             </div>
@@ -333,8 +349,8 @@ export default function OrganizationPickerPage({ mode }) {
                 <Map size={22} />
               </div>
               <div className="metricDetails">
-                <span className="metricValue">{totalMaps || 5}</span>
-                <span className="metricLabel">Maps</span>
+                <span className="metricValue">{totalMaps}</span>
+                <span className="metricLabel">Campus Maps</span>
               </div>
             </div>
           </section>
@@ -411,14 +427,18 @@ export default function OrganizationPickerPage({ mode }) {
 
           {/* Organization Cards List */}
           <div className="organizationCardsList" aria-label="Organizations list">
-            {filteredOrganizations.map((organization, index) => {
-              const isDefault =
-                index === 0 ||
-                (organization.name || '').toLowerCase().includes('default') ||
-                (organization.name || '').toLowerCase().includes('esi');
+            {filteredOrganizations.map((organization) => {
+              const buildingCount = organization.buildingCount !== undefined
+                ? organization.buildingCount
+                : (organization.buildings?.length || 0);
 
-              const buildingCount = organization.buildings?.length || (isDefault ? 12 : 4);
-              const mapCount = organization.mapCount || (isDefault ? 5 : 2);
+              const createdDate = organization.createdAt
+                ? new Date(organization.createdAt).toLocaleDateString(undefined, {
+                    month: 'short',
+                    day: 'numeric',
+                    year: 'numeric',
+                  })
+                : 'Active';
 
               return (
                 <article className="modernOrgCard" key={organization.id}>
@@ -440,17 +460,33 @@ export default function OrganizationPickerPage({ mode }) {
                   <div className="modernOrgBody">
                     <div className="modernOrgTitleRow">
                       <h3 className="modernOrgName">{organization.name}</h3>
-                      <span className={`orgStatusBadge ${isDefault ? 'defaultBadge' : 'campusBadge'}`}>
-                        {isDefault ? 'Default' : 'Campus'}
+                      <span className="orgStatusBadge campusBadge">
+                        Campus
                       </span>
                     </div>
 
                     <div className="modernOrgMetaRow">
-                      <span className="modernOrgMetaItem">Campus</span>
+                      <span className="modernOrgMetaItem">
+                        {buildingCount} {buildingCount === 1 ? 'building' : 'buildings'}
+                      </span>
                       <span className="metaDot">&bull;</span>
-                      <span className="modernOrgMetaItem">{buildingCount} buildings</span>
-                      <span className="metaDot">&bull;</span>
-                      <span className="modernOrgMetaItem">{mapCount} maps</span>
+                      <span className="modernOrgMetaItem">1 campus map</span>
+                      {organization.description && (
+                        <>
+                          <span className="metaDot">&bull;</span>
+                          <span
+                            className="modernOrgMetaItem"
+                            style={{
+                              maxWidth: 240,
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
+                            {organization.description}
+                          </span>
+                        </>
+                      )}
                     </div>
 
                     <div className="modernOrgSpecsRow">
@@ -460,33 +496,52 @@ export default function OrganizationPickerPage({ mode }) {
                       </span>
                       <span className="specPill timestampPill">
                         <Calendar size={13} />
-                        <span>Updated Sep 15, 2025</span>
+                        <span>Created {createdDate}</span>
                       </span>
                     </div>
                   </div>
 
                   {/* Right Actions */}
                   <div className="modernOrgActions">
-                    <Link
-                      className="button buttonGhost viewOrgBtn"
-                      to={`/maps/${organization.id}`}
-                      title="Open public viewer"
-                    >
-                      <span>View</span>
-                      <ArrowRight size={15} />
-                    </Link>
-
-                    {isAdmin && (
+                    {!isAdminMode ? (
                       <>
                         <Link
-                          className="button buttonGhost editorOrgBtn"
+                          className="button buttonPrimary exploreOrgBtn"
+                          to={`/maps/${organization.id}`}
+                          title="Explore campus map"
+                        >
+                          <Compass size={16} />
+                          <span>Explore Map</span>
+                        </Link>
+                        {isAdmin && (
+                          <Link
+                            className="button buttonGhost editorOrgBtn"
+                            to={`/admin/maps/${organization.id}`}
+                            title="Open CAD Editor"
+                          >
+                            <Wrench size={15} />
+                            <span>Editor</span>
+                          </Link>
+                        )}
+                      </>
+                    ) : (
+                      <>
+                        <Link
+                          className="button buttonPrimary editorOrgBtn"
                           to={`/admin/maps/${organization.id}`}
                           title="Open CAD Editor"
                         >
                           <Wrench size={15} />
-                          <span>Editor</span>
+                          <span>CAD Editor</span>
                         </Link>
-
+                        <Link
+                          className="button buttonGhost viewOrgBtn"
+                          to={`/maps/${organization.id}`}
+                          title="Preview public viewer"
+                        >
+                          <Eye size={15} />
+                          <span>Preview</span>
+                        </Link>
                         <button
                           className="button buttonGhost publishOrgBtn"
                           type="button"
@@ -496,18 +551,15 @@ export default function OrganizationPickerPage({ mode }) {
                           <Rocket size={15} />
                           <span>Publish</span>
                         </button>
-
-                        {isAdminMode && (
-                          <button
-                            className="button buttonDanger deleteOrgBtn"
-                            type="button"
-                            disabled={deletingId === organization.id}
-                            onClick={() => setDeleteTarget(organization)}
-                            title="Delete organization"
-                          >
-                            <Trash2 size={15} />
-                          </button>
-                        )}
+                        <button
+                          className="button buttonDanger deleteOrgBtn"
+                          type="button"
+                          disabled={deletingId === organization.id}
+                          onClick={() => setDeleteTarget(organization)}
+                          title="Delete organization"
+                        >
+                          <Trash2 size={15} />
+                        </button>
                       </>
                     )}
                   </div>

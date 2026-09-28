@@ -49,6 +49,7 @@ class OrganizationController extends AbstractController
             'createdAt' => $o->getCreatedAt()->format(\DateTime::ATOM),
             'canvasWidth'=>$o->getCanvasWidth(),
             'canvasHeight'=>$o->getCanvasHeight(),
+            'buildingCount'=>$o->getBuildings()->count(),
             'tracingImages'=>$isAdmin? $o->getTracingImages() : null,
         ], $organizations);
 
