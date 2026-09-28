@@ -3,7 +3,10 @@ import { useNavigate, useParams } from 'react-router-dom';
 import {
   Building2,
   Check,
+  ChevronDown,
+  ChevronRight,
   ChevronsUpDown,
+  Circle as LucideCircle,
   CircleDot,
   Eye,
   EyeOff,
@@ -28,6 +31,7 @@ import * as editorApi from '../api/editorApi';
 import * as organizationApi from '../api/organizationApi';
 import * as routeApi from '../api/routeApi';
 import { useMapForgeWebMcp } from '../agent/webmcp/useMapForgeWebMcp';
+import RoutePathDock from '../components/viewer/RoutePathDock';
 import { LocationSearchBox } from '../components/viewer/RoutePlanner';
 import ConfirmModal from '../components/common/ConfirmModal';
 import StatusMessage from '../components/common/StatusMessage';
@@ -37,7 +41,6 @@ import {
   buildNodeIndex,
   collectUniqueEdges,
   createCoordinateMapper,
-  formatRoutePath,
   getActiveFloorNumber,
   getFloorsForLevel,
   geometryToKonvaPolygons,
@@ -470,17 +473,62 @@ function EditorLayers({
   onSelectFloor,
   onSelectNode,
   onAddFloor,
+  onAddNode,
   onUploadClick,
   activeTab = 'layers',
   onTabChange,
+  gridEnabled = true,
+  onGridEnabledChange,
+  snapEnabled = false,
+  onSnapEnabledChange,
+  gridSize = 10,
+  onGridSizeChange,
 }) {
-  const [gridEnabled, setGridEnabled] = useState(true);
-  const [snapEnabled, setSnapEnabled] = useState(false);
-  const [gridSize, setGridSize] = useState(10);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [expandedBuildings, setExpandedBuildings] = useState(() => new Set(buildings.map((b) => Number(b.id))));
+  const [expandedFloors, setExpandedFloors] = useState(() => new Set(floors.map((f) => Number(f.id))));
+
+  useEffect(() => {
+    if (activeBuildingId) {
+      setExpandedBuildings((prev) => new Set([...prev, Number(activeBuildingId)]));
+    }
+  }, [activeBuildingId]);
+
+  useEffect(() => {
+    if (activeFloorId) {
+      setExpandedFloors((prev) => new Set([...prev, Number(activeFloorId)]));
+    }
+  }, [activeFloorId]);
+
+  const toggleBuilding = (buildingId, e) => {
+    e?.stopPropagation();
+    setExpandedBuildings((prev) => {
+      const next = new Set(prev);
+      if (next.has(Number(buildingId))) next.delete(Number(buildingId));
+      else next.add(Number(buildingId));
+      return next;
+    });
+  };
+
+  const toggleFloor = (floorId, e) => {
+    e?.stopPropagation();
+    setExpandedFloors((prev) => {
+      const next = new Set(prev);
+      if (next.has(Number(floorId))) next.delete(Number(floorId));
+      else next.add(Number(floorId));
+      return next;
+    });
+  };
 
   const defaultCampus = buildings.find(isDefaultCampus);
   const regularBuildings = buildings.filter((building) => !isDefaultCampus(building));
   const orderedBuildings = defaultCampus ? [defaultCampus, ...regularBuildings] : regularBuildings;
+
+  const query = searchTerm.trim().toLowerCase();
+
+  const buildingColors = ['#2563EB', '#7C3AED', '#059669', '#DB2777', '#D97706', '#0891B2'];
+  const floorColors = ['#10B981', '#F59E0B', '#8B5CF6', '#06B6D4', '#EC4899'];
+  const nodeColors = ['#14B8A6', '#38BDF8', '#818CF8', '#A78BFA', '#F472B6'];
 
   return (
     <aside className="editorSidebar">
@@ -509,74 +557,153 @@ function EditorLayers({
         <span>{organization?.name || 'Organization'}</span>
       </button>
 
-      {/* Buildings Section */}
-      <section className="buildingTree">
-        <div className="sidebarSectionHeader">
-          <h3>Buildings</h3>
-          {onAddFloor && (
-            <button
-              type="button"
-              className="sidebarSectionActionBtn"
-              onClick={onAddFloor}
-              title="Add floor level"
-            >
-              <Plus size={13} />
-              <span>Add layer</span>
-            </button>
-          )}
+      {/* Campus Structure Section (matching design) */}
+      <section className="structureTreeSection">
+        <h3 className="structureTreeHeader">Campus Structure</h3>
+        <div className="structureSearchBox">
+          <Search size={14} className="searchIcon" />
+          <input
+            type="text"
+            placeholder="Search buildings, floors, or nodes..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+          <kbd className="searchKbd">⌘ K</kbd>
         </div>
 
-        {orderedBuildings.map((building) => {
-          const buildingFloors = getFloorsForBuilding(floors, building.id);
-          const isActive = Number(building.id) === Number(activeBuildingId);
-          return (
-            <section className="treeBuilding" key={building.id}>
-              {isDefaultCampus(building) ? <div className="outdoorDivider">Outdoor</div> : null}
-              <button
-                className={`treeBuildingButton ${isActive ? 'isActive' : ''} ${selected?.kind === 'building' && Number(selected.id) === Number(building.id) ? 'isSelectedLayer' : ''}`}
-                type="button"
-                onClick={() => onSelectBuilding(building.id)}
-              >
-                <span className="buildingColor" style={{ backgroundColor: building.color || '#176b5f' }} aria-hidden="true" />
-                <span>{building.name}</span>
-                <small className={`statusPill status-${String(building.status || 'DRAFT').toLowerCase()}`}>{building.status || 'DRAFT'}</small>
-              </button>
-              {isActive ? (
-                <div className="floorList">
-                  {buildingFloors.length === 0 ? <p className="emptyHint">Add your first floor.</p> : null}
-                  {buildingFloors.map((floor) => (
-                    <div className="floorLayerGroup" key={floor.id}>
-                      <button
-                        className={`floorButton ${Number(activeFloorId) === Number(floor.id) ? 'isActive' : ''}`}
-                        type="button"
-                        onClick={() => onSelectFloor(floor.id)}
-                      >
-                        <Layers size={14} />
-                        <span>{floor.name}</span>
-                        <small>Level {floor.floorNumber}</small>
-                      </button>
-                      {Number(activeFloorId) === Number(floor.id) ? (
-                        <div className="nodeLayerList">
-                          {(floor.nodes || []).map((node) => (
-                            <button
-                              className={`nodeLayerRow ${selected?.kind === 'node' && Number(selected.id) === Number(node.id) ? 'isActive' : ''}`}
-                              type="button"
-                              key={node.id}
-                              onClick={() => onSelectNode(node.id)}
-                            >
-                              <CircleDot size={12} />
-                              <span>{node.externalIdentifier || node.name}</span>
-                            </button>
-                          ))}
-                        </div>
-                      ) : null}
-                    </div>
-                  ))}
+        <div className="structureTreeList">
+          {orderedBuildings.map((building, bIndex) => {
+            const buildingFloors = getFloorsForBuilding(floors, building.id);
+            const isBuildingExpanded = query ? true : expandedBuildings.has(Number(building.id));
+            const isBuildingActive = Number(building.id) === Number(activeBuildingId);
+            const buildingColor = building.color || buildingColors[bIndex % buildingColors.length];
+
+            const filteredFloors = buildingFloors.filter((floor) => {
+              if (!query) return true;
+              const matchesBuilding = (building.name || '').toLowerCase().includes(query);
+              const matchesFloor = (floor.name || '').toLowerCase().includes(query);
+              const matchesNodes = (floor.nodes || []).some(
+                (n) => (n.name || '').toLowerCase().includes(query) || (n.externalIdentifier || '').toLowerCase().includes(query)
+              );
+              return matchesBuilding || matchesFloor || matchesNodes;
+            });
+
+            if (query && filteredFloors.length === 0 && !(building.name || '').toLowerCase().includes(query)) {
+              return null;
+            }
+
+            return (
+              <div key={building.id} className="treeBuildingGroup">
+                <div
+                  className={`treeBuildingRow ${isBuildingActive ? 'isActive' : ''}`}
+                  onClick={() => onSelectBuilding(building.id)}
+                  role="button"
+                  tabIndex={0}
+                >
+                  <button
+                    type="button"
+                    className="treeChevronBtn"
+                    onClick={(e) => toggleBuilding(building.id, e)}
+                    title={isBuildingExpanded ? 'Collapse' : 'Expand'}
+                  >
+                    {isBuildingExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                  </button>
+                  <div className="treeBadge buildingBadge" style={{ backgroundColor: buildingColor }}>
+                    <Building2 size={13} color="#FFFFFF" />
+                  </div>
+                  <span className="treeBuildingName">{building.name}</span>
+                  <span className="treeBadgeCount">{buildingFloors.length} {buildingFloors.length === 1 ? 'floor' : 'floors'}</span>
                 </div>
-              ) : null}
-            </section>
-          );
-        })}
+
+                {isBuildingExpanded && (
+                  <div className="treeFloorsContainer">
+                    {filteredFloors.length === 0 ? (
+                      <p className="emptyHint" style={{ fontSize: '0.76rem', paddingLeft: 8 }}>No floors yet.</p>
+                    ) : null}
+                    {filteredFloors.map((floor, fIndex) => {
+                      const isFloorExpanded = query ? true : expandedFloors.has(Number(floor.id));
+                      const isFloorActive = Number(floor.id) === Number(activeFloorId);
+                      const floorColor = floorColors[fIndex % floorColors.length];
+                      const floorNodes = floor.nodes || [];
+
+                      const filteredNodes = floorNodes.filter((node) => {
+                        if (!query) return true;
+                        return (
+                          (node.name || '').toLowerCase().includes(query) ||
+                          (node.externalIdentifier || '').toLowerCase().includes(query)
+                        );
+                      });
+
+                      return (
+                        <div key={floor.id} className="treeFloorGroup">
+                          <div
+                            className={`treeFloorRow ${isFloorActive ? 'isActive' : ''}`}
+                            onClick={() => onSelectFloor(floor.id)}
+                            role="button"
+                            tabIndex={0}
+                          >
+                            <button
+                              type="button"
+                              className="treeChevronBtn"
+                              onClick={(e) => toggleFloor(floor.id, e)}
+                              title={isFloorExpanded ? 'Collapse' : 'Expand'}
+                            >
+                              {isFloorExpanded ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
+                            </button>
+                            <div className="treeBadge floorBadge" style={{ backgroundColor: floorColor }}>
+                              <Layers size={12} color="#FFFFFF" />
+                            </div>
+                            <span className="treeFloorName">{floor.name}</span>
+                            <span className="treeBadgeCount">{floorNodes.length} {floorNodes.length === 1 ? 'node' : 'nodes'}</span>
+                          </div>
+
+                          {isFloorExpanded && (
+                            <div className="treeNodesContainer">
+                              {filteredNodes.map((node, nIndex) => {
+                                const isNodeSelected = selected?.kind === 'node' && Number(selected.id) === Number(node.id);
+                                const dotColor = nodeColors[nIndex % nodeColors.length];
+                                return (
+                                  <div
+                                    key={node.id}
+                                    className={`treeNodeRow ${isNodeSelected ? 'isActive' : ''}`}
+                                    onClick={() => onSelectNode(node.id)}
+                                    role="button"
+                                    tabIndex={0}
+                                  >
+                                    <LucideCircle
+                                      size={9}
+                                      className="treeNodeCircle"
+                                      style={{
+                                        color: isNodeSelected ? '#2DD4BF' : dotColor,
+                                        fill: isNodeSelected ? '#2DD4BF' : 'transparent',
+                                      }}
+                                    />
+                                    <span className="treeNodeName">{node.externalIdentifier || node.name || `Node ${node.id}`}</span>
+                                  </div>
+                                );
+                              })}
+                              <button
+                                type="button"
+                                className="treeAddNodeBtn"
+                                onClick={() => {
+                                  onSelectFloor(floor.id);
+                                  onAddNode?.();
+                                }}
+                              >
+                                <Plus size={13} />
+                                <span>Add node</span>
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
       </section>
 
       {/* Reference Images Section */}
@@ -602,7 +729,7 @@ function EditorLayers({
             <button type="button" title={image.visible === false ? 'Show blueprint' : 'Hide blueprint'} onClick={() => onToggleImage(image.id)}>
               {image.visible === false ? <EyeOff size={14} /> : <Eye size={14} />}
             </button>
-            <button type="button" onClick={() => onSelectImage(image.id)}>
+            <button type="button" className="imageTitleBtn" onClick={() => onSelectImage(image.id)}>
               <ImageIcon size={14} />
               <span>{image.name || image.filename || 'Campus map.png'}</span>
             </button>
@@ -615,7 +742,9 @@ function EditorLayers({
 
       {/* Settings Section matching Screen 4 */}
       <section className="editorSettingsBlock">
-        <h3>Settings</h3>
+        <div className="sidebarSectionHeader">
+          <h3>Settings</h3>
+        </div>
         <div className="editorSettingRow">
           <label htmlFor="setting-grid" className="settingLabel">Grid</label>
           <input
@@ -623,7 +752,7 @@ function EditorLayers({
             type="checkbox"
             className="modernSwitch"
             checked={gridEnabled}
-            onChange={(e) => setGridEnabled(e.target.checked)}
+            onChange={(e) => onGridEnabledChange?.(e.target.checked)}
           />
         </div>
         <div className="editorSettingRow">
@@ -633,7 +762,7 @@ function EditorLayers({
             type="checkbox"
             className="modernSwitch"
             checked={snapEnabled}
-            onChange={(e) => setSnapEnabled(e.target.checked)}
+            onChange={(e) => onSnapEnabledChange?.(e.target.checked)}
           />
         </div>
         <div className="editorSettingRow sliderRow">
@@ -647,7 +776,7 @@ function EditorLayers({
             max="50"
             step="1"
             value={gridSize}
-            onChange={(e) => setGridSize(Number(e.target.value))}
+            onChange={(e) => onGridSizeChange?.(Number(e.target.value))}
             className="modernRangeSlider"
           />
         </div>
@@ -668,6 +797,9 @@ function EditorCanvas({
   currentRoute,
   connectSourceId,
   routePickStep,
+  gridEnabled = true,
+  snapEnabled = false,
+  gridSize = 10,
   onCanvasPoint,
   onPolygonPoint,
   onClosePolygon,
@@ -687,6 +819,14 @@ function EditorCanvas({
   onRoutePickNode,
 }) {
   const [hostRef, size] = useElementSize();
+  const gridStep = Math.max(20, (gridSize || 10) * 10);
+  const snapPoint = useCallback((pt) => {
+    if (!snapEnabled) return pt;
+    return {
+      x: Math.round(pt.x / gridStep) * gridStep,
+      y: Math.round(pt.y / gridStep) * gridStep,
+    };
+  }, [snapEnabled, gridStep]);
   // The marquee box and the pan offset used to be React state
   // (`selectionBox` / `transform`) updated on every single mousemove event.
   // Since every building/node/edge/image in the render body reads from
@@ -751,6 +891,17 @@ function EditorCanvas({
   const mapper = useMemo(() => createCoordinateMapper(transform), [transform]);
   const routeNodes = useMemo(() => routeNodeSet(currentRoute), [currentRoute]);
   const routeEdges = useMemo(() => routeEdgeSet(currentRoute), [currentRoute]);
+  const gridLines = useMemo(() => {
+    if (!gridEnabled) return [];
+    const lines = [];
+    for (let x = 0; x <= canvas.width; x += gridStep) {
+      lines.push([x, 0, x, canvas.height]);
+    }
+    for (let y = 0; y <= canvas.height; y += gridStep) {
+      lines.push([0, y, canvas.width, y]);
+    }
+    return lines;
+  }, [gridEnabled, gridStep, canvas.width, canvas.height]);
   const nodesById = useMemo(() => buildNodeIndex(floors), [floors]);
   const visibleNodesById = useMemo(() => buildNodeIndex(visibleFloors), [visibleFloors]);
   const sameFloorEdges = useMemo(() => getVisibleEdges(visibleFloors), [visibleFloors]);
@@ -1212,6 +1363,13 @@ function EditorCanvas({
         >
           <Layer ref={mainLayerRef}>
             <Rect x={0} y={0} width={canvas.width} height={canvas.height} fill="#202422" stroke="#f3f6f4" strokeWidth={24} listening={false} />
+            {gridEnabled && (
+              <Group listening={false} opacity={0.16}>
+                {gridLines.map((pts, idx) => (
+                  <Line key={`grid-line-${idx}`} points={pts} stroke="#94A3B8" strokeWidth={1} listening={false} />
+                ))}
+              </Group>
+            )}
             {lowerImages.map((image) => (
               <TracingImage
                 key={image.id || image.imagePath || image.url}
@@ -1439,7 +1597,9 @@ function EditorCanvas({
                   }}
                   onDragEnd={(event) => {
                     moveKonvaNodeToLayer(event.target, mainLayerRef.current);
-                    const point = clampPointToCanvas({ x: event.target.x(), y: event.target.y() }, canvas);
+                    const rawPt = { x: event.target.x(), y: event.target.y() };
+                    const snappedPt = snapPoint(rawPt);
+                    const point = clampPointToCanvas(snappedPt, canvas);
                     onNodeDragEnd(node.id, { xCoord: point.x, yCoord: point.y });
                     event.target.position(point);
                     setDraggingNodeId(null);
@@ -1467,6 +1627,65 @@ function EditorCanvas({
                 </Group>
               );
             })}
+
+            {/* Continuous Glowing Route Path Line on Canvas */}
+            {currentRoute?.path && currentRoute.path.length >= 2 && (
+              <Group listening={false}>
+                {currentRoute.path.map((node, i) => {
+                  if (i === 0) return null;
+                  const prev = currentRoute.path[i - 1];
+                  const x1 = cleanNumber(prev.xCoord ?? nodesById.get(Number(prev.id))?.xCoord);
+                  const y1 = cleanNumber(prev.yCoord ?? nodesById.get(Number(prev.id))?.yCoord);
+                  const x2 = cleanNumber(node.xCoord ?? nodesById.get(Number(node.id))?.xCoord);
+                  const y2 = cleanNumber(node.yCoord ?? nodesById.get(Number(node.id))?.yCoord);
+                  const isCrossFloor = Number(prev.floorId) !== Number(node.floorId);
+                  return (
+                    <Group key={`route-poly-${i}`}>
+                      <Line
+                        points={[x1, y1, x2, y2]}
+                        stroke="#10b981"
+                        strokeWidth={14}
+                        opacity={0.35}
+                        lineCap="round"
+                      />
+                      <Line
+                        points={[x1, y1, x2, y2]}
+                        stroke="#ffd166"
+                        strokeWidth={isCrossFloor ? 6 : 8}
+                        dash={isCrossFloor ? [16, 12] : undefined}
+                        opacity={0.95}
+                        lineCap="round"
+                      />
+                    </Group>
+                  );
+                })}
+                {currentRoute.path.map((node, i) => {
+                  const x = cleanNumber(node.xCoord ?? nodesById.get(Number(node.id))?.xCoord);
+                  const y = cleanNumber(node.yCoord ?? nodesById.get(Number(node.id))?.yCoord);
+                  const isStart = i === 0;
+                  const isEnd = i === currentRoute.path.length - 1;
+                  const label = node.name || node.identifier || `Node ${node.id}`;
+                  return (
+                    <Group key={`route-waypoint-${node.id}-${i}`}>
+                      <Circle
+                        x={x}
+                        y={y}
+                        radius={isStart || isEnd ? nodeRadius * 1.5 : nodeRadius * 1.15}
+                        fill={isStart ? '#10B981' : isEnd ? '#EF4444' : '#FFD166'}
+                        stroke="#FFFFFF"
+                        strokeWidth={3}
+                        shadowColor="rgba(0,0,0,0.5)"
+                        shadowBlur={8}
+                      />
+                      <Label x={x + 14} y={y - 12}>
+                        <Tag fill="rgba(11, 19, 29, 0.92)" stroke="#FFD166" strokeWidth={1} cornerRadius={4} />
+                        <Text text={label} fill="#FFFFFF" fontSize={12} fontStyle="bold" padding={4} />
+                      </Label>
+                    </Group>
+                  );
+                })}
+              </Group>
+            )}
 
             {buildings.map((building) => {
               const isActive = Number(building.id) === Number(activeBuildingId);
@@ -1891,6 +2110,9 @@ export default function AdminEditorPage() {
   const [routePickStep, setRoutePickStep] = useState('source');
   const [undoStack, setUndoStack] = useState([]);
   const [redoStack, setRedoStack] = useState([]);
+  const [gridEnabled, setGridEnabled] = useState(true);
+  const [snapEnabled, setSnapEnabled] = useState(false);
+  const [gridSize, setGridSize] = useState(10);
   const pendingSavesRef = useRef(new Map());
   const activeSaveControllersRef = useRef(new Map());
   const operationQueueRef = useRef(Promise.resolve());
@@ -2899,7 +3121,6 @@ export default function AdminEditorPage() {
   }
 
   const selectedSourceNode = connectSourceId ? nodeIndex.get(Number(connectSourceId)) : null;
-  const routePathText = formatRoutePath(currentRoute, floors);
   const isSaving = savingCount > 0;
 
   return (
@@ -2934,7 +3155,12 @@ export default function AdminEditorPage() {
             <button className={`toolButton ${tool === 'route' ? 'isActive' : ''}`} type="button" onClick={() => setActiveTool('route')} title="Pick route on canvas"><Route size={16} /></button>
             <label className="toolButton uploadToolButton" title="Upload blueprint">
               <ImageIcon size={16} />
-              <input type="file" accept="image/png,image/jpeg,image/gif,image/webp" onChange={(event) => handleUploadImage(event.target.files?.[0])} />
+              <input
+                type="file"
+                accept="image/png,image/jpeg,image/gif,image/webp"
+                style={{ display: 'none' }}
+                onChange={(event) => handleUploadImage(event.target.files?.[0])}
+              />
             </label>
             <button className="toolButton" type="button" disabled={undoStack.length === 0} onClick={handleUndo} title="Undo"><Undo2 size={16} /></button>
             <button className="toolButton" type="button" disabled={redoStack.length === 0} onClick={handleRedo} title="Redo"><Redo2 size={16} /></button>
@@ -3000,9 +3226,16 @@ export default function AdminEditorPage() {
                 onSelectFloor={selectFloor}
                 onSelectNode={selectNode}
                 onAddFloor={() => setFloorPopoverOpen(true)}
+                onAddNode={() => setActiveTool('addNode')}
                 onUploadClick={() => fileInputRef.current?.click()}
                 activeTab={editorSidebarTab}
                 onTabChange={setEditorSidebarTab}
+                gridEnabled={gridEnabled}
+                onGridEnabledChange={setGridEnabled}
+                snapEnabled={snapEnabled}
+                onSnapEnabledChange={setSnapEnabled}
+                gridSize={gridSize}
+                onGridSizeChange={setGridSize}
               />
               <div className="editorCenterColumn">
                 <div className="editorCanvasStack">
@@ -3018,18 +3251,31 @@ export default function AdminEditorPage() {
                     currentRoute={currentRoute}
                     connectSourceId={connectSourceId}
                     routePickStep={routePickStep}
+                    gridEnabled={gridEnabled}
+                    snapEnabled={snapEnabled}
+                    gridSize={gridSize}
                     onCanvasPoint={(point) => {
+                      const step = Math.max(20, (gridSize || 10) * 10);
+                      const snapped = snapEnabled ? {
+                        x: Math.round(point.x / step) * step,
+                        y: Math.round(point.y / step) * step,
+                      } : point;
                       if (tool === 'draw') setBuildingModalOpen(true);
-                      if (tool === 'addNode' && activeFloor) void handleCreateNode(point);
+                      if (tool === 'addNode' && activeFloor) void handleCreateNode(snapped);
                     }}
                     onPolygonPoint={(point) => {
+                      const step = Math.max(20, (gridSize || 10) * 10);
+                      const snapped = snapEnabled ? {
+                        x: Math.round(point.x / step) * step,
+                        y: Math.round(point.y / step) * step,
+                      } : point;
                       setDraftPolygon((current) => {
                         const first = current[0];
-                        if (first && current.length >= 3 && Math.hypot(point.x - first.x, point.y - first.y) < 42) {
+                        if (first && current.length >= 3 && Math.hypot(snapped.x - first.x, snapped.y - first.y) < 42) {
                           setBuildingModalOpen(true);
                           return current;
                         }
-                        return [...current, point];
+                        return [...current, snapped];
                       });
                     }}
                     onClosePolygon={() => {
@@ -3052,9 +3298,8 @@ export default function AdminEditorPage() {
                   />
                   <div className="canvasFloatingTop">
                     <div className="canvasSearchFloat">
-                      <Search size={16} />
                       <LocationSearchBox
-                        label="Search draft and published nodes"
+                        label=""
                         organizationId={organizationId}
                         selected={searchSelection}
                         onSelect={(node) => {
@@ -3078,12 +3323,13 @@ export default function AdminEditorPage() {
                       </div>
                     ) : null}
                   </div>
-                  {currentRoute ? (
-                    <div className="routeSegmentDock">
-                      <strong>{currentRoute.totalDistance}m total</strong>
-                      <span>{routePathText}</span>
-                    </div>
-                  ) : null}
+                  <RoutePathDock
+                    route={currentRoute}
+                    floors={floors}
+                    buildings={buildings}
+                    onSelectNode={(nodeId) => selectNode(nodeId, { preserveContext: true })}
+                    onClearRoute={() => setCurrentRoute(null)}
+                  />
                 </div>
               </div>
               <EditorInspector

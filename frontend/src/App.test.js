@@ -25,7 +25,7 @@ jest.mock('./api/authApi', () => ({
 test('renders MapForge landing entry points', async () => {
   render(<App />);
 
-  expect(await screen.findByRole('heading', { name: 'MapForge' })).toBeInTheDocument();
-  expect(screen.getByRole('link', { name: /Browse a Map/i })).toBeInTheDocument();
+  expect(await screen.findByRole('heading', { name: /Turn spaces into/i })).toBeInTheDocument();
+  expect(screen.getByRole('link', { name: /Browse Campus Maps/i })).toBeInTheDocument();
   expect(screen.getAllByRole('link', { name: /Admin Sign In/i }).length).toBeGreaterThan(0);
 });

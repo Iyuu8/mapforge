@@ -540,6 +540,65 @@ export default function ViewerCanvas({
               );
             })}
 
+            {/* Continuous Glowing Route Path Line on Viewer Canvas */}
+            {route?.path && route.path.length >= 2 && (
+              <Group listening={false}>
+                {route.path.map((node, i) => {
+                  if (i === 0) return null;
+                  const prev = route.path[i - 1];
+                  const x1 = Number(prev.xCoord ?? viewerNodesById.get(Number(prev.id))?.xCoord ?? 0);
+                  const y1 = Number(prev.yCoord ?? viewerNodesById.get(Number(prev.id))?.yCoord ?? 0);
+                  const x2 = Number(node.xCoord ?? viewerNodesById.get(Number(node.id))?.xCoord ?? 0);
+                  const y2 = Number(node.yCoord ?? viewerNodesById.get(Number(node.id))?.yCoord ?? 0);
+                  const isCrossFloor = Number(prev.floorId) !== Number(node.floorId);
+                  return (
+                    <Group key={`viewer-route-poly-${i}`}>
+                      <Line
+                        points={[x1, y1, x2, y2]}
+                        stroke="#10b981"
+                        strokeWidth={14}
+                        opacity={0.35}
+                        lineCap="round"
+                      />
+                      <Line
+                        points={[x1, y1, x2, y2]}
+                        stroke="#ffd166"
+                        strokeWidth={isCrossFloor ? 6 : 8}
+                        dash={isCrossFloor ? [16, 12] : undefined}
+                        opacity={0.95}
+                        lineCap="round"
+                      />
+                    </Group>
+                  );
+                })}
+                {route.path.map((node, i) => {
+                  const x = Number(node.xCoord ?? viewerNodesById.get(Number(node.id))?.xCoord ?? 0);
+                  const y = Number(node.yCoord ?? viewerNodesById.get(Number(node.id))?.yCoord ?? 0);
+                  const isStart = i === 0;
+                  const isEnd = i === route.path.length - 1;
+                  const label = node.name || node.identifier || `Node ${node.id}`;
+                  return (
+                    <Group key={`viewer-route-waypoint-${node.id}-${i}`}>
+                      <Circle
+                        x={x}
+                        y={y}
+                        radius={isStart || isEnd ? nodeRadius * 1.5 : nodeRadius * 1.15}
+                        fill={isStart ? '#10B981' : isEnd ? '#EF4444' : '#FFD166'}
+                        stroke="#FFFFFF"
+                        strokeWidth={3}
+                        shadowColor="rgba(0,0,0,0.5)"
+                        shadowBlur={8}
+                      />
+                      <Label x={x + 14} y={y - 12}>
+                        <Tag fill="rgba(11, 19, 29, 0.92)" stroke="#FFD166" strokeWidth={1} cornerRadius={4} />
+                        <Text text={label} fill="#FFFFFF" fontSize={12} fontStyle="bold" padding={4} />
+                      </Label>
+                    </Group>
+                  );
+                })}
+              </Group>
+            )}
+
             {buildings.map((building) => {
               const labelPoint = getGeometryCentroid(building.geometry);
               if (!labelPoint) return null;

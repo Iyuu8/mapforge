@@ -18,11 +18,11 @@ import { useMapForgeWebMcp } from '../agent/webmcp/useMapForgeWebMcp';
 import BrandLogo from '../components/common/BrandLogo';
 import StatusMessage from '../components/common/StatusMessage';
 import { LocationSearchBox } from '../components/viewer/RoutePlanner';
+import RoutePathDock from '../components/viewer/RoutePathDock';
 import ViewerCanvas from '../components/viewer/ViewerCanvas';
 import { MapProvider } from '../context/MapContext';
 import {
   NODE_TYPE_LABELS,
-  formatRoutePath,
   getFloorForNode,
   getFloorsForBuilding,
 } from '../domain/mapModel';
@@ -65,7 +65,6 @@ function PublicViewerContent() {
   const [routeLoading, setRouteLoading] = useState(false);
   const [routeError, setRouteError] = useState(null);
 
-  const routePathText = useMemo(() => formatRoutePath(currentRoute, floors), [currentRoute, floors]);
 
   const webMcpContext = useMemo(
     () => ({
@@ -461,7 +460,7 @@ function PublicViewerContent() {
                 {/* Floating Search Bar */}
                 <div className="viewerSearchFloat">
                   <LocationSearchBox
-                    label="Search map"
+                    label=""
                     organizationId={organizationId}
                     selected={searchSelection}
                     onSelect={(location) => {
@@ -537,12 +536,20 @@ function PublicViewerContent() {
                   </div>
                 )}
 
-                {currentRoute && (
-                  <div className="routeSegmentDock viewerRouteDock">
-                    <strong>{currentRoute.totalDistance}m total distance</strong>
-                    <span>{routePathText}</span>
-                  </div>
-                )}
+                <RoutePathDock
+                  route={currentRoute}
+                  floors={floors}
+                  buildings={buildings}
+                  onSelectNode={(nodeId) => {
+                    setSelectedNodeId(nodeId);
+                    setFocusedNodeId(nodeId);
+                  }}
+                  onClearRoute={() => {
+                    setCurrentRoute(null);
+                    setSource(null);
+                    setDestination(null);
+                  }}
+                />
               </div>
             </div>
 

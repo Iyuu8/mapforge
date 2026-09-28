@@ -79,14 +79,22 @@ class RouteController extends AbstractController
             'sourceId' => $source->getId(),
             'destinationId' => $destination->getId(),
             'totalDistance' => $result['totalDistance'],
-            'path' => array_map(fn($node) => [
-                'id' => $node->getId(),
-                'identifier' => $node->getExternalIdentifier(),
-                'name' => $node->getName(),
-                'floorId' => $node->getFloor()->getId(),
-                'xCoord' => $node->getXCoord(),
-                'yCoord' => $node->getYCoord(),
-            ], $result['path']),
+            'path' => array_map(function($node) {
+                $floor = $node->getFloor();
+                $building = $floor ? $floor->getBuilding() : null;
+                return [
+                    'id' => $node->getId(),
+                    'identifier' => $node->getExternalIdentifier(),
+                    'name' => $node->getName(),
+                    'floorId' => $floor ? $floor->getId() : null,
+                    'floorNumber' => $floor ? $floor->getFloorNumber() : 0,
+                    'floorName' => $floor ? $floor->getName() : null,
+                    'buildingId' => $building ? $building->getId() : null,
+                    'buildingName' => $building ? $building->getName() : null,
+                    'xCoord' => $node->getXCoord(),
+                    'yCoord' => $node->getYCoord(),
+                ];
+            }, $result['path']),
         ]);
     }
 }

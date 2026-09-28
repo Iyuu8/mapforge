@@ -2168,14 +2168,21 @@ button, input, select, textarea {
 .editorSaveStatusBadge {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 7px;
-  padding: 3px 9px;
+  width: 90px;
+  min-width: 90px;
+  max-width: 90px;
+  box-sizing: border-box;
+  flex-shrink: 0;
+  padding: 3px 8px;
   border-radius: var(--radius-full);
   background: rgba(16, 185, 129, 0.1);
   border: 1px solid rgba(16, 185, 129, 0.25);
   font-size: 0.76rem;
   font-weight: 600;
   color: #34D399;
+  white-space: nowrap;
 }
 
 .savePulseDot {
@@ -2189,6 +2196,15 @@ button, input, select, textarea {
 .savePulseDot.isSaving {
   background: #F59E0B;
   box-shadow: 0 0 8px #F59E0B;
+}
+
+.uploadToolButton {
+  cursor: pointer;
+  position: relative;
+}
+
+.uploadToolButton input {
+  display: none !important;
 }
 
 .editorContextStrip {
@@ -2314,7 +2330,7 @@ button, input, select, textarea {
 /* Workspace Layout */
 .editorWorkspace {
   display: grid;
-  grid-template-columns: 240px minmax(0, 1fr) 280px;
+  grid-template-columns: 280px minmax(0, 1fr) 280px;
   gap: 12px;
   height: 100%;
   padding: 10px 12px;
@@ -2330,7 +2346,7 @@ button, input, select, textarea {
   padding: 14px;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 14px;
   overflow-y: auto;
   box-shadow: var(--shadow-md);
 }
@@ -2365,11 +2381,275 @@ button, input, select, textarea {
   color: #FFFFFF;
 }
 
+/* Campus Structure Tree (matching design) */
+.structureTreeHeader {
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: #FFFFFF;
+  margin: 0 0 10px 0;
+  letter-spacing: -0.01em;
+}
+
+.structureSearchBox {
+  position: relative;
+  display: flex;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.structureSearchBox .searchIcon {
+  position: absolute;
+  left: 10px;
+  color: #64748B;
+  pointer-events: none;
+}
+
+.structureSearchBox input {
+  width: 100%;
+  height: 34px;
+  padding: 0 40px 0 32px;
+  background: #0E1724;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: var(--radius-md);
+  color: #FFFFFF;
+  font-size: 0.8rem;
+  outline: none;
+  transition: border-color var(--transition-fast);
+}
+
+.structureSearchBox input:focus {
+  border-color: rgba(20, 184, 166, 0.6);
+  box-shadow: 0 0 0 2px rgba(20, 184, 166, 0.15);
+}
+
+.structureSearchBox input::placeholder {
+  color: #64748B;
+}
+
+.searchKbd {
+  position: absolute;
+  right: 8px;
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: #64748B;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  padding: 2px 5px;
+  pointer-events: none;
+}
+
+.structureTreeList {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.treeBuildingRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 6px 8px;
+  border-radius: var(--radius-md);
+  background: transparent;
+  border: 1px solid transparent;
+  color: #FFFFFF;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  text-align: left;
+}
+
+.treeBuildingRow:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.treeBuildingRow.isActive {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.treeChevronBtn {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border: none;
+  background: transparent;
+  color: #64748B;
+  cursor: pointer;
+  border-radius: 3px;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.treeChevronBtn:hover {
+  color: #FFFFFF;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.treeBadge {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  flex-shrink: 0;
+}
+
+.treeBadge.buildingBadge {
+  background: #2563EB;
+}
+
+.treeBadge.floorBadge {
+  background: #10B981;
+}
+
+.treeBuildingName {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.treeBadgeCount {
+  font-size: 0.72rem;
+  color: #64748B;
+  font-weight: 500;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.treeFloorsContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-left: 14px;
+  padding-left: 8px;
+  border-left: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.treeFloorRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 5px 8px;
+  border-radius: var(--radius-md);
+  background: transparent;
+  border: 1px solid transparent;
+  color: #CBD5E1;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  text-align: left;
+}
+
+.treeFloorRow:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: #FFFFFF;
+}
+
+.treeFloorRow.isActive {
+  background: rgba(16, 185, 129, 0.12);
+  border-color: rgba(16, 185, 129, 0.3);
+  color: #34D399;
+}
+
+.treeFloorName {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.treeNodesContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-left: 20px;
+  padding-left: 8px;
+  border-left: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.treeNodeRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 5px 10px;
+  border-radius: var(--radius-md);
+  background: transparent;
+  border: 1px solid transparent;
+  color: #94A3B8;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  text-align: left;
+}
+
+.treeNodeRow:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: #FFFFFF;
+}
+
+.treeNodeRow.isActive {
+  background: rgba(20, 184, 166, 0.15);
+  border-color: rgba(20, 184, 166, 0.35);
+  color: #2DD4BF;
+  box-shadow: 0 0 10px rgba(20, 184, 166, 0.15);
+}
+
+.treeNodeCircle {
+  flex-shrink: 0;
+}
+
+.treeNodeName {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.treeAddNodeBtn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 6px 10px;
+  margin-top: 4px;
+  border: 1px dashed rgba(56, 189, 248, 0.3);
+  border-radius: var(--radius-md);
+  background: rgba(56, 189, 248, 0.06);
+  color: #38BDF8;
+  font-size: 0.76rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.treeAddNodeBtn:hover {
+  background: rgba(56, 189, 248, 0.14);
+  border-color: rgba(56, 189, 248, 0.5);
+}
+
+/* Reference Images Block */
+.referenceLayerBlock {
+  margin-top: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
 .sidebarSectionHeader {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 8px;
+  margin-bottom: 4px;
 }
 
 .sidebarSectionHeader h3 {
@@ -2400,107 +2680,53 @@ button, input, select, textarea {
   color: white;
 }
 
-/* Tree & Layers in Sidebar */
-.buildingTree, .referenceLayerBlock, .editorSettingsBlock {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.layerRow {
+.imageLayerRow {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 10px;
+  gap: 6px;
+  padding: 6px 10px;
   border-radius: var(--radius-md);
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid transparent;
-  color: #CBD5E1;
-  font-size: 0.86rem;
-  cursor: pointer;
-}
-
-.layerRow:hover {
-  background: rgba(255, 255, 255, 0.06);
-}
-
-.layerRow.isActive {
-  background: rgba(13, 92, 70, 0.35);
-  border-color: rgba(13, 92, 70, 0.6);
-  color: #FFFFFF;
-}
-
-.treeBuildingButton {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  padding: 7px 10px;
-  border-radius: var(--radius-md);
-  background: transparent;
-  border: 1px solid transparent;
-  color: #E2E8F0;
-  font-size: 0.86rem;
-  font-weight: 600;
-  cursor: pointer;
-  text-align: left;
-}
-
-.treeBuildingButton:hover {
-  background: rgba(255, 255, 255, 0.05);
-}
-
-.treeBuildingButton.isActive {
-  background: rgba(255, 255, 255, 0.08);
-  border-color: rgba(255, 255, 255, 0.12);
-}
-
-.buildingColor {
-  width: 10px;
-  height: 10px;
-  border-radius: 3px;
-  flex-shrink: 0;
-}
-
-.floorList {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding-left: 18px;
-  margin-top: 4px;
-}
-
-.floorButton {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  padding: 6px 8px;
-  border-radius: var(--radius-sm);
-  background: transparent;
-  border: 1px solid transparent;
-  color: #94A3B8;
-  font-size: 0.82rem;
-  cursor: pointer;
-  text-align: left;
-}
-
-.floorButton:hover {
-  color: #FFFFFF;
   background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
-.floorButton.isActive {
-  background: rgba(13, 92, 70, 0.3);
-  border-color: rgba(13, 92, 70, 0.5);
-  color: #34D399;
-  font-weight: 700;
+.imageLayerRow button {
+  background: transparent;
+  border: none;
+  color: #94A3B8;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  padding: 4px;
+  border-radius: 4px;
+  transition: all var(--transition-fast);
 }
 
-/* Settings block in Screen 4 */
+.imageLayerRow button:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #FFFFFF;
+}
+
+.imageLayerRow .imageTitleBtn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  text-align: left;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 0.8rem;
+  color: #E2E8F0;
+}
+
+/* Settings block */
 .editorSettingsBlock {
-  padding-top: 12px;
+  padding-top: 10px;
   border-top: 1px solid var(--dark-border);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
 .editorSettingsBlock h3 {
@@ -2509,14 +2735,14 @@ button, input, select, textarea {
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: var(--dark-muted);
-  margin: 0 0 10px;
+  margin: 0;
 }
 
 .editorSettingRow {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 4px 0;
+  padding: 2px 0;
 }
 
 .settingLabel {
@@ -2526,7 +2752,7 @@ button, input, select, textarea {
 }
 
 .modernSwitch {
-  accent-color: var(--primary);
+  accent-color: #10B981;
   width: 18px;
   height: 18px;
   cursor: pointer;
@@ -2546,12 +2772,12 @@ button, input, select, textarea {
 .sliderValue {
   font-size: 0.8rem;
   font-weight: 700;
-  color: #34D399;
+  color: #10B981;
 }
 
 .modernRangeSlider {
   width: 100%;
-  accent-color: var(--primary);
+  accent-color: #10B981;
   cursor: pointer;
 }
 
@@ -2562,6 +2788,7 @@ button, input, select, textarea {
   position: relative;
   height: 100%;
   min-width: 0;
+  width: 100%;
 }
 
 .editorCanvasStack {
@@ -2575,14 +2802,72 @@ button, input, select, textarea {
   box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.5);
 }
 
-.editorCanvas {
+.canvasStage {
+  position: relative;
   width: 100%;
   height: 100%;
+  min-height: 0;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  border: 1px solid var(--dark-border);
+  background: #0B131D;
+  box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
+}
+
+.mapCanvasShell,
+.editorCanvas,
+.viewerCanvas {
   position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
   outline: none;
 }
 
-/* Floating Zoom Controls (Bottom-Left) */
+.konvaCanvasHost {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.konvaPanWrapper {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/* Floating Overlays */
+.canvasFloatingTop {
+  position: absolute;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  width: min(460px, 85%);
+  z-index: 20;
+  pointer-events: none;
+}
+
+.canvasFloatingTop > * {
+  pointer-events: auto;
+}
+
+.canvasSearchFloat {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  position: relative;
+}
+
 .canvasControls {
   position: absolute;
   bottom: 16px;
@@ -3087,4 +3372,207 @@ button, input, select, textarea {
 .saveFlag-saved { color: #34D399; }
 .saveFlag-saving { color: #FBBF24; }
 .saveFlag-error { color: #F87171; }
+
+/* Route Path Dock (component displayed on top of map at bottom) */
+.routePathDock {
+  position: absolute;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 25;
+  width: min(840px, 92%);
+  background: rgba(11, 19, 29, 0.94);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.6);
+  padding: 10px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: auto;
+}
+
+.routePathDockHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding-bottom: 6px;
+}
+
+.routePathDockMeta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.routeMetaIcon {
+  color: #F59E0B;
+}
+
+.routeDistanceText {
+  color: #FBBF24;
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+
+.routePointsCount {
+  color: #94A3B8;
+  font-size: 0.78rem;
+}
+
+.routeDockCloseBtn {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  color: #94A3B8;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.routeDockCloseBtn:hover {
+  background: rgba(239, 68, 68, 0.2);
+  border-color: rgba(239, 68, 68, 0.4);
+  color: #EF4444;
+}
+
+.routePathScrollTrack {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow-x: auto;
+  padding: 4px 2px;
+  scrollbar-width: thin;
+}
+
+.routePathNodeItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #FFFFFF;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: all var(--transition-fast);
+}
+
+.routePathNodeItem:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.routePathNodeItem.isStart {
+  border-color: rgba(16, 185, 129, 0.4);
+  background: rgba(16, 185, 129, 0.12);
+}
+
+.routePathNodeItem.isStart .routeNodeDot {
+  background: #10B981;
+  box-shadow: 0 0 6px #10B981;
+}
+
+.routePathNodeItem.isEnd {
+  border-color: rgba(239, 68, 68, 0.4);
+  background: rgba(239, 68, 68, 0.12);
+}
+
+.routePathNodeItem.isEnd .routeNodeDot {
+  background: #EF4444;
+  box-shadow: 0 0 6px #EF4444;
+}
+
+.routeNodeDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #F59E0B;
+  flex-shrink: 0;
+}
+
+.routeFloorBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(56, 189, 248, 0.2);
+  border: 1px solid rgba(56, 189, 248, 0.4);
+  color: #38BDF8;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.routePathConnector {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.routeStepArrow {
+  color: #64748B;
+}
+
+.floorChangeBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: var(--radius-full);
+  background: rgba(245, 158, 11, 0.2);
+  border: 1px solid rgba(245, 158, 11, 0.45);
+  color: #FBBF24;
+  font-size: 0.72rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+/* Enhanced search float in viewer and editor */
+.viewerSearchFloat .locationSearchBox input,
+.canvasSearchFloat .locationSearchBox input {
+  height: 38px;
+  background: rgba(14, 23, 36, 0.92);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: var(--radius-full);
+  padding: 8px 16px 8px 36px;
+  color: white;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+.viewerSearchFloat .locationSearchBox label,
+.canvasSearchFloat .locationSearchBox label {
+  gap: 0;
+  color: transparent;
+  font-size: 0;
+}
+
+.viewerSearchFloat .locationSearchBox,
+.canvasSearchFloat .locationSearchBox {
+  position: relative;
+}
+
+.viewerSearchFloat .locationSearchBox::before,
+.canvasSearchFloat .locationSearchBox::before {
+  content: '';
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 14px;
+  height: 14px;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%2394A3B8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='11' cy='11' r='8'%3E%3C/circle%3E%3Cline x1='21' y1='21' x2='16.65' y2='16.65'%3E%3C/line%3E%3C/svg%3E") no-repeat center;
+  z-index: 5;
+  pointer-events: none;
+}
 
