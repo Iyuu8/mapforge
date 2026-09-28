@@ -1,16 +1,14 @@
 import { Link, NavLink } from 'react-router-dom';
-import { LogOut, Map, Shield } from 'lucide-react';
+import { LogOut } from 'lucide-react';
 import useAuth from '../../hooks/useAuth';
+import BrandLogo from './BrandLogo';
 
-export default function AppTopbar() {
+export default function AppTopbar({ theme = 'light' }) {
   const { isAdmin, isAuthenticated, signOut, user } = useAuth();
 
   return (
-    <header className="topbar">
-      <Link to="/" className="brandMark" aria-label="MapForge home">
-        <span className="brandIcon"><Map size={18} /></span>
-        <span>MapForge</span>
-      </Link>
+    <header className={`topbar topbar-${theme}`}>
+      <BrandLogo theme={theme} />
       <nav className="topbarNav" aria-label="Main navigation">
         <NavLink to="/maps">Browse</NavLink>
         {isAdmin ? <NavLink to="/admin">Admin</NavLink> : null}
@@ -18,17 +16,17 @@ export default function AppTopbar() {
       <div className="topbarAccount">
         {isAuthenticated ? (
           <>
-            <span className="accountBadge">
-              <Shield size={14} />
-              {user.email}
+            <span className="accountBadge" title={user.email}>
+              <span className="userAvatarDot">{(user.email?.[0] || 'A').toUpperCase()}</span>
+              <span className="userEmailText">{user.email}</span>
             </span>
-            <button className="iconTextButton" type="button" onClick={signOut}>
-              <LogOut size={16} />
-              Sign out
+            <button className="iconTextButton buttonGhost" type="button" onClick={signOut}>
+              <LogOut size={15} />
+              <span>Sign out</span>
             </button>
           </>
         ) : (
-          <Link className="button buttonGhost" to="/login">Admin sign in</Link>
+          <Link className="button buttonPrimary" to="/login">Admin sign in</Link>
         )}
       </div>
     </header>

@@ -18,16 +18,17 @@ import {
   Route,
   Save,
   Search,
+  SlidersHorizontal,
   Trash2,
   Undo2,
 } from 'lucide-react';
+import BrandLogo from '../components/common/BrandLogo';
 import { Circle, Group, Image as KonvaImage, Label, Layer, Line, Rect, Stage, Tag, Text } from 'react-konva';
 import * as editorApi from '../api/editorApi';
 import * as organizationApi from '../api/organizationApi';
 import * as routeApi from '../api/routeApi';
 import { useMapForgeWebMcp } from '../agent/webmcp/useMapForgeWebMcp';
 import { LocationSearchBox } from '../components/viewer/RoutePlanner';
-import AppTopbar from '../components/common/AppTopbar';
 import ConfirmModal from '../components/common/ConfirmModal';
 import StatusMessage from '../components/common/StatusMessage';
 import ToastStack from '../components/common/ToastStack';
@@ -468,41 +469,63 @@ function EditorLayers({
   onSelectBuilding,
   onSelectFloor,
   onSelectNode,
+  onAddFloor,
+  onUploadClick,
+  activeTab = 'layers',
+  onTabChange,
 }) {
+  const [gridEnabled, setGridEnabled] = useState(true);
+  const [snapEnabled, setSnapEnabled] = useState(false);
+  const [gridSize, setGridSize] = useState(10);
+
   const defaultCampus = buildings.find(isDefaultCampus);
   const regularBuildings = buildings.filter((building) => !isDefaultCampus(building));
   const orderedBuildings = defaultCampus ? [defaultCampus, ...regularBuildings] : regularBuildings;
 
   return (
     <aside className="editorSidebar">
-      <div className="panelHeader">
-        <Layers size={18} />
-        <h2>Layers</h2>
+      {/* Top Tab Bar: Layers | Properties */}
+      <div className="editorSidebarTabs">
+        <button
+          className={`sidebarTabBtn ${activeTab === 'layers' ? 'isActive' : ''}`}
+          type="button"
+          onClick={() => onTabChange?.('layers')}
+        >
+          <Layers size={14} />
+          <span>Layers</span>
+        </button>
+        <button
+          className={`sidebarTabBtn ${activeTab === 'properties' ? 'isActive' : ''}`}
+          type="button"
+          onClick={() => onTabChange?.('properties')}
+        >
+          <SlidersHorizontal size={14} />
+          <span>Properties</span>
+        </button>
       </div>
+
       <button className={`layerRow ${selected?.kind === 'organization' ? 'isActive' : ''}`} type="button" onClick={onSelectOrganization}>
         <ChevronsUpDown size={15} />
         <span>{organization?.name || 'Organization'}</span>
       </button>
-      <section className="referenceLayerBlock">
-        <h3>Reference Images</h3>
-        {(organization?.tracingImages || []).length === 0 ? <p className="emptyHint">No blueprint overlays yet.</p> : null}
-        {(organization?.tracingImages || []).sort((a, b) => cleanNumber(a.zIndex) - cleanNumber(b.zIndex)).map((image) => (
-          <div className={`layerRow imageLayerRow ${selected?.kind === 'image' && selected.id === image.id ? 'isActive' : ''}`} key={image.id || image.imagePath}>
-            <button type="button" title={image.visible === false ? 'Show blueprint' : 'Hide blueprint'} onClick={() => onToggleImage(image.id)}>
-              {image.visible === false ? <EyeOff size={14} /> : <Eye size={14} />}
-            </button>
-            <button type="button" onClick={() => onSelectImage(image.id)}>
-              <ImageIcon size={14} />
-              <span>{image.name || image.filename || 'Reference image'}</span>
-            </button>
-            <button type="button" title="Delete blueprint" onClick={() => onDeleteImage(image.id)}>
-              <Trash2 size={14} />
-            </button>
-          </div>
-        ))}
-      </section>
+
+      {/* Buildings Section */}
       <section className="buildingTree">
-        <h3>Buildings</h3>
+        <div className="sidebarSectionHeader">
+          <h3>Buildings</h3>
+          {onAddFloor && (
+            <button
+              type="button"
+              className="sidebarSectionActionBtn"
+              onClick={onAddFloor}
+              title="Add floor level"
+            >
+              <Plus size={13} />
+              <span>Add layer</span>
+            </button>
+          )}
+        </div>
+
         {orderedBuildings.map((building) => {
           const buildingFloors = getFloorsForBuilding(floors, building.id);
           const isActive = Number(building.id) === Number(activeBuildingId);
@@ -554,6 +577,80 @@ function EditorLayers({
             </section>
           );
         })}
+      </section>
+
+      {/* Reference Images Section */}
+      <section className="referenceLayerBlock">
+        <div className="sidebarSectionHeader">
+          <h3>Reference Images</h3>
+          {onUploadClick && (
+            <button
+              type="button"
+              className="sidebarSectionActionBtn"
+              onClick={onUploadClick}
+              title="Upload reference blueprint"
+            >
+              <Plus size={13} />
+              <span>Add image</span>
+            </button>
+          )}
+        </div>
+
+        {(organization?.tracingImages || []).length === 0 ? <p className="emptyHint">No blueprint overlays yet.</p> : null}
+        {(organization?.tracingImages || []).sort((a, b) => cleanNumber(a.zIndex) - cleanNumber(b.zIndex)).map((image) => (
+          <div className={`layerRow imageLayerRow ${selected?.kind === 'image' && selected.id === image.id ? 'isActive' : ''}`} key={image.id || image.imagePath}>
+            <button type="button" title={image.visible === false ? 'Show blueprint' : 'Hide blueprint'} onClick={() => onToggleImage(image.id)}>
+              {image.visible === false ? <EyeOff size={14} /> : <Eye size={14} />}
+            </button>
+            <button type="button" onClick={() => onSelectImage(image.id)}>
+              <ImageIcon size={14} />
+              <span>{image.name || image.filename || 'Campus map.png'}</span>
+            </button>
+            <button type="button" title="Delete blueprint" onClick={() => onDeleteImage(image.id)}>
+              <Trash2 size={14} />
+            </button>
+          </div>
+        ))}
+      </section>
+
+      {/* Settings Section matching Screen 4 */}
+      <section className="editorSettingsBlock">
+        <h3>Settings</h3>
+        <div className="editorSettingRow">
+          <label htmlFor="setting-grid" className="settingLabel">Grid</label>
+          <input
+            id="setting-grid"
+            type="checkbox"
+            className="modernSwitch"
+            checked={gridEnabled}
+            onChange={(e) => setGridEnabled(e.target.checked)}
+          />
+        </div>
+        <div className="editorSettingRow">
+          <label htmlFor="setting-snap" className="settingLabel">Snap to grid</label>
+          <input
+            id="setting-snap"
+            type="checkbox"
+            className="modernSwitch"
+            checked={snapEnabled}
+            onChange={(e) => setSnapEnabled(e.target.checked)}
+          />
+        </div>
+        <div className="editorSettingRow sliderRow">
+          <div className="sliderLabelRow">
+            <span className="settingLabel">Grid size</span>
+            <span className="sliderValue">{gridSize} m</span>
+          </div>
+          <input
+            type="range"
+            min="2"
+            max="50"
+            step="1"
+            value={gridSize}
+            onChange={(e) => setGridSize(Number(e.target.value))}
+            className="modernRangeSlider"
+          />
+        </div>
       </section>
     </aside>
   );
@@ -1488,12 +1585,31 @@ function EditorCanvas({
         <div className="drawHint">{routePickStep === 'source' ? 'Click the route source node' : 'Click the route destination node'}</div>
       ) : null}
       <div className="canvasControls">
-        <button type="button" onClick={() => setCanvasTransform((current) => ({ ...current, scale: Math.min(MAX_SCALE, current.scale * 1.2) }))}>+</button>
-        <button type="button" onClick={() => setCanvasTransform((current) => ({ ...current, scale: Math.max(MIN_SCALE, current.scale / 1.2) }))}>-</button>
-        <button type="button" onClick={() => setCanvasTransform(fitTransform(stageSize, bounds))}>Fit</button>
-        <span>{Math.round(transform.scale * 100)}%</span>
+        <button type="button" onClick={() => setCanvasTransform((current) => ({ ...current, scale: Math.max(MIN_SCALE, current.scale / 1.25) }))} title="Zoom out">-</button>
+        <button type="button" onClick={() => setCanvasTransform(fitTransform(stageSize, bounds))} title="Fit content to view">
+          {Math.round(transform.scale * 100)}%
+        </button>
+        <button type="button" onClick={() => setCanvasTransform((current) => ({ ...current, scale: Math.min(MAX_SCALE, current.scale * 1.25) }))} title="Zoom in">+</button>
       </div>
-      <div className="canvasCoordinateLabel">{canvas.width} x {canvas.height}</div>
+
+      {/* Minimap preview radar & Canvas dimensions pill */}
+      <div className="canvasBottomRightStack">
+        <div className="canvasMinimapBox" title="Minimap Radar">
+          <div className="minimapRadarCanvas">
+            <div className="minimapRadarGrid" />
+            <div
+              className="minimapViewportRect"
+              style={{
+                width: `${Math.min(95, Math.max(15, (stageSize.width / Math.max(canvas.width * transform.scale, 1)) * 100))}%`,
+                height: `${Math.min(95, Math.max(15, (stageSize.height / Math.max(canvas.height * transform.scale, 1)) * 100))}%`,
+                left: `${Math.min(80, Math.max(0, (-transform.x / Math.max(canvas.width * transform.scale, 1)) * 100))}%`,
+                top: `${Math.min(80, Math.max(0, (-transform.y / Math.max(canvas.height * transform.scale, 1)) * 100))}%`,
+              }}
+            />
+          </div>
+        </div>
+        <div className="canvasCoordinateLabel">{canvas.width} x {canvas.height}</div>
+      </div>
     </section>
   );
 }
@@ -1746,7 +1862,9 @@ function FloorPopover({ building, onCreate, onCancel }) {
 export default function AdminEditorPage() {
   const { organizationId } = useParams();
   const navigate = useNavigate();
-  const { isAdmin } = useAuth();
+  const { isAdmin, user } = useAuth();
+  const fileInputRef = useRef(null);
+  const [editorSidebarTab, setEditorSidebarTab] = useState('layers');
   const [organization, setOrganization] = useState(null);
   const [buildings, setBuildings] = useState([]);
   const [floors, setFloors] = useState([]);
@@ -2786,39 +2904,74 @@ export default function AdminEditorPage() {
 
   return (
     <div className="appFrame editorFrame">
-      <AppTopbar />
       <main className="editorPage">
         <header className="editorTopbar">
+          <div className="editorBrandStrip">
+            <BrandLogo theme="dark" size="small" />
+            <span className="editorBrandSep">/</span>
+            <span className="editorMapTitle">{organization?.name || activeBuilding?.name || 'ESI MAIN CAMPUS'}</span>
+            <div className="editorSaveStatusBadge">
+              <span className={`savePulseDot ${isSaving ? 'isSaving' : 'isSaved'}`} />
+              <span>{isSaving ? 'Saving...' : 'Saved'}</span>
+            </div>
+          </div>
+
           <div className="editorContextStrip">
-            <strong>{activeBuilding?.name || 'No building selected'}</strong>
             {getFloorsForBuilding(floors, activeBuildingId).map((floor) => (
               <button className={Number(activeFloorId) === Number(floor.id) ? 'isActive' : ''} type="button" key={floor.id} onClick={() => selectFloor(floor.id)}>
                 {floor.name}
               </button>
             ))}
-            {activeBuilding ? <button type="button" onClick={() => setFloorPopoverOpen(true)}><Plus size={14} /> Floor</button> : null}
+            {activeBuilding ? <button type="button" onClick={() => setFloorPopoverOpen(true)} className="addFloorBtn"><Plus size={14} /> Floor</button> : null}
           </div>
+
           <div className="editorToolbar" aria-label="Editor tools">
-            <button className={`toolButton ${tool === 'select' ? 'isActive' : ''}`} type="button" onClick={() => setActiveTool('select')} title="Select"><MousePointer2 size={17} /></button>
-            <button className={`toolButton ${tool === 'pan' ? 'isActive' : ''}`} type="button" onClick={() => setActiveTool('pan')} title="Pan"><LocateFixed size={17} /></button>
-            <button className={`toolButton ${tool === 'draw' ? 'isActive' : ''}`} type="button" onClick={() => setActiveTool('draw')} title="Draw building boundary"><PencilRuler size={17} /></button>
-            <button className={`toolButton ${tool === 'addNode' ? 'isActive' : ''}`} type="button" onClick={() => setActiveTool('addNode')} title="Add node"><Plus size={17} /></button>
-            <button className={`toolButton ${tool === 'connect' ? 'isActive' : ''}`} type="button" onClick={() => setActiveTool('connect')} title="Connect nodes"><Link2 size={17} /></button>
-            <button className={`toolButton ${tool === 'route' ? 'isActive' : ''}`} type="button" onClick={() => setActiveTool('route')} title="Pick route on canvas"><Route size={17} /></button>
+            <button className={`toolButton ${tool === 'select' ? 'isActive' : ''}`} type="button" onClick={() => setActiveTool('select')} title="Select"><MousePointer2 size={16} /></button>
+            <button className={`toolButton ${tool === 'pan' ? 'isActive' : ''}`} type="button" onClick={() => setActiveTool('pan')} title="Pan"><LocateFixed size={16} /></button>
+            <button className={`toolButton ${tool === 'draw' ? 'isActive' : ''}`} type="button" onClick={() => setActiveTool('draw')} title="Draw building boundary"><PencilRuler size={16} /></button>
+            <button className={`toolButton ${tool === 'addNode' ? 'isActive' : ''}`} type="button" onClick={() => setActiveTool('addNode')} title="Add node"><Plus size={16} /></button>
+            <button className={`toolButton ${tool === 'connect' ? 'isActive' : ''}`} type="button" onClick={() => setActiveTool('connect')} title="Connect nodes"><Link2 size={16} /></button>
+            <button className={`toolButton ${tool === 'route' ? 'isActive' : ''}`} type="button" onClick={() => setActiveTool('route')} title="Pick route on canvas"><Route size={16} /></button>
             <label className="toolButton uploadToolButton" title="Upload blueprint">
-              <ImageIcon size={17} />
+              <ImageIcon size={16} />
               <input type="file" accept="image/png,image/jpeg,image/gif,image/webp" onChange={(event) => handleUploadImage(event.target.files?.[0])} />
             </label>
-            <button className="toolButton" type="button" disabled={undoStack.length === 0} onClick={handleUndo} title="Undo restores content, not exact IDs"><Undo2 size={17} /></button>
-            <button className="toolButton" type="button" disabled={redoStack.length === 0} onClick={handleRedo} title="Redo"><Redo2 size={17} /></button>
+            <button className="toolButton" type="button" disabled={undoStack.length === 0} onClick={handleUndo} title="Undo"><Undo2 size={16} /></button>
+            <button className="toolButton" type="button" disabled={redoStack.length === 0} onClick={handleRedo} title="Redo"><Redo2 size={16} /></button>
           </div>
+
           <div className="editorActions">
-            <button className="button buttonGhost" type="button" onClick={handleSaveNow}><Save size={16} />Save now</button>
-            <button className="button buttonGhost" type="button" onClick={() => navigate(`/maps/${organizationId}`)}>View map</button>
-            <button className="button buttonSubtle" type="button" disabled={!activeBuilding} onClick={handlePublishBuilding}><Check size={16} />Publish building</button>
-            <button className="button buttonPrimary" type="button" onClick={handlePublishOrganization}>Publish all</button>
+            <button className="button buttonGhost editorPreviewBtn" type="button" onClick={handleSaveNow} title="Save immediately">
+              <Save size={14} />
+              <span>Save</span>
+            </button>
+            {activeBuilding && (
+              <button className="button buttonGhost editorPreviewBtn" type="button" onClick={handlePublishBuilding} title="Publish active building">
+                <Check size={14} />
+                <span>Publish building</span>
+              </button>
+            )}
+            <button className="button buttonGhost editorPreviewBtn" type="button" onClick={() => navigate(`/maps/${organizationId}`)}>
+              <Eye size={15} />
+              <span>Preview</span>
+            </button>
+            <button className="button buttonPrimary editorPublishBtn" type="button" onClick={handlePublishOrganization}>
+              <span>Publish</span>
+            </button>
+            <div className="editorUserAvatarBadge" title={user?.email || 'Admin'}>
+              {(user?.email?.[0] || 'A').toUpperCase()}
+            </div>
           </div>
         </header>
+
+        {/* Hidden file input for blueprint upload */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/png,image/jpeg,image/gif,image/webp"
+          style={{ display: 'none' }}
+          onChange={(event) => handleUploadImage(event.target.files?.[0])}
+        />
 
         {error ? <StatusMessage title="Could not load editor" tone="error">{error.message}</StatusMessage> : null}
         {publishResult ? (
@@ -2846,6 +2999,10 @@ export default function AdminEditorPage() {
                 onSelectBuilding={selectBuilding}
                 onSelectFloor={selectFloor}
                 onSelectNode={selectNode}
+                onAddFloor={() => setFloorPopoverOpen(true)}
+                onUploadClick={() => fileInputRef.current?.click()}
+                activeTab={editorSidebarTab}
+                onTabChange={setEditorSidebarTab}
               />
               <div className="editorCenterColumn">
                 <div className="editorCanvasStack">

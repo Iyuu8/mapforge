@@ -1,57 +1,31 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useParams } from 'react-router-dom';
-import { LocateFixed, MousePointer2, Route } from 'lucide-react';
+import { Link, useParams } from 'react-router-dom';
+import {
+  ArrowLeft,
+  Building2,
+  ChevronRight,
+  Edit,
+  LocateFixed,
+  Map,
+  Maximize2,
+  MousePointer2,
+  Route,
+  Search,
+} from 'lucide-react';
 import * as routeApi from '../api/routeApi';
 import { useMapForgeWebMcp } from '../agent/webmcp/useMapForgeWebMcp';
 import AppTopbar from '../components/common/AppTopbar';
 import StatusMessage from '../components/common/StatusMessage';
 import { LocationSearchBox } from '../components/viewer/RoutePlanner';
 import ViewerCanvas from '../components/viewer/ViewerCanvas';
-import ViewerSidebar from '../components/viewer/ViewerSidebar';
 import { MapProvider } from '../context/MapContext';
 import { NODE_TYPE_LABELS, formatRoutePath, getFloorForNode, getFloorsForBuilding } from '../domain/mapModel';
+import useAuth from '../hooks/useAuth';
 import useMap from '../hooks/useMap';
-
-function ViewerDetailsPanel({ selectedNode, activeBuilding, activeFloor, floors }) {
-  const nodeFloor = selectedNode ? getFloorForNode(floors, selectedNode.id) : null;
-
-  return (
-    <aside className="viewerDetailsPanel">
-      <div className="panelHeader">
-        <MousePointer2 size={18} />
-        <h2>Properties</h2>
-      </div>
-      {selectedNode ? (
-        <div className="propertyList">
-          <span>Name</span>
-          <strong>{selectedNode.name || 'Unnamed node'}</strong>
-          <span>Identifier</span>
-          <strong>{selectedNode.externalIdentifier || selectedNode.identifier || selectedNode.id}</strong>
-          <span>Type</span>
-          <strong>{NODE_TYPE_LABELS[selectedNode.type] || selectedNode.type || 'Node'}</strong>
-          <span>Building</span>
-          <strong>{activeBuilding?.name || 'Outdoor'}</strong>
-          <span>Floor</span>
-          <strong>{nodeFloor?.name || activeFloor?.name || 'No floor'}</strong>
-        </div>
-      ) : activeBuilding ? (
-        <div className="propertyList">
-          <span>Building</span>
-          <strong>{activeBuilding.name}</strong>
-          <span>Status</span>
-          <strong>{activeBuilding.status || 'Published'}</strong>
-          <span>Current floor</span>
-          <strong>{activeFloor?.name || 'No floor selected'}</strong>
-        </div>
-      ) : (
-        <p className="emptyHint">Select a building or node on the map to inspect it.</p>
-      )}
-    </aside>
-  );
-}
 
 function PublicViewerContent() {
   const { organizationId } = useParams();
+  const { isAdmin } = useAuth();
   const {
     organization,
     buildings,
@@ -62,7 +36,6 @@ function PublicViewerContent() {
     activeFloorNumber,
     activeFloorId,
     visibleFloors,
-    selectedNode,
     selectedNodeId,
     currentRoute,
     focusedNodeId,
@@ -75,25 +48,35 @@ function PublicViewerContent() {
     setCurrentRoute,
     setFocusedNodeId,
   } = useMap();
+
   const [source, setSource] = useState(null);
   const [destination, setDestination] = useState(null);
   const [searchSelection, setSearchSelection] = useState(null);
-  const [tool, setTool] = useState('pan');
+  const [buildingSearch, setBuildingSearch] = useState('');
+  const [tool, setTool] = useState('select');
   const [routePickStep, setRoutePickStep] = useState('source');
   const [routeLoading, setRouteLoading] = useState(false);
   const [routeError, setRouteError] = useState(null);
+  const [activeMainTab, setActiveMainTab] = useState('buildings'); // 'buildings' | 'maps' | 'details'
+  const [activeBuildingTab, setActiveBuildingTab] = useState('overview'); // 'overview' | 'floors' | 'map'
+
   const routePathText = useMemo(() => formatRoutePath(currentRoute, floors), [currentRoute, floors]);
-  const webMcpContext = useMemo(() => ({
-    organizationId,
-    organization,
-    buildings,
-    floors,
-    activeBuilding,
-    activeFloor,
-    isAdmin: false,
-    canEdit: false,
-    setCurrentRoute,
-  }), [activeBuilding, activeFloor, buildings, floors, organization, organizationId, setCurrentRoute]);
+
+  const webMcpContext = useMemo(
+    () => ({
+      organizationId,
+      organization,
+      buildings,
+      floors,
+      activeBuilding,
+      activeFloor,
+      isAdmin: false,
+      canEdit: false,
+      setCurrentRoute,
+    }),
+    [activeBuilding, activeFloor, buildings, floors, organization, organizationId, setCurrentRoute]
+  );
+
   const {
     confirmationModal: webMcpConfirmationModal,
     activityIndicator: webMcpActivityIndicator,
@@ -107,6 +90,10 @@ function PublicViewerContent() {
     setActiveBuildingId(buildingId);
     setSelectedNodeId(null);
     setSearchSelection(null);
+    const buildingFloors = getFloorsForBuilding(floors, buildingId);
+    if (buildingFloors.length > 0 && (!activeFloorId || !buildingFloors.some((f) => f.id === activeFloorId))) {
+      setActiveFloorId(buildingFloors[0].id);
+    }
   }
 
   function focusLocation(location) {
@@ -188,133 +175,413 @@ function PublicViewerContent() {
     setRoutePickStep('source');
   }
 
+  // Filter buildings by search text
+  const filteredBuildings = useMemo(() => {
+    if (!buildingSearch.trim()) return buildings;
+    const q = buildingSearch.toLowerCase();
+    return buildings.filter(
+      (b) => b.name?.toLowerCase().includes(q) || b.description?.toLowerCase().includes(q)
+    );
+  }, [buildings, buildingSearch]);
+
+  const activeBuildingFloors = useMemo(
+    () => getFloorsForBuilding(floors, activeBuildingId),
+    [floors, activeBuildingId]
+  );
+
+  // Nodes / POIs on active floor
+  const currentFloorNodes = useMemo(() => {
+    if (!activeFloor?.nodes) return [];
+    return activeFloor.nodes.slice(0, 8);
+  }, [activeFloor]);
+
   return (
-    <div className="appFrame viewerFrame">
+    <div className="appFrame viewerLayoutFrame">
       <AppTopbar />
-      <main className="viewerPage">
-        <section className="viewerHeader">
-          <div>
-            <p className="eyebrow">Public viewer</p>
-            <h1>{organization?.name || 'Loading map'}</h1>
-            <p>
-              {activeBuilding
-                ? `${activeBuilding.name} highlighted / Level ${activeFloorNumber ?? '-'}`
-                : 'Published map browser'}
+
+      <main className="viewerDetailsPage">
+        {/* Breadcrumb Bar */}
+        <section className="viewerBreadcrumbBar">
+          <div className="breadcrumbTrail">
+            <Link to="/maps" className="breadcrumbLink">
+              <ArrowLeft size={16} />
+              <span>Organizations</span>
+            </Link>
+            <ChevronRight size={14} className="breadcrumbSeparator" />
+            <span className="breadcrumbCurrent">{organization?.name || 'Campus'}</span>
+          </div>
+
+          {isAdmin && (
+            <Link
+              to={`/admin/maps/${organizationId}`}
+              className="button buttonGhost editCampusBtn"
+              title="Open map editor"
+            >
+              <Edit size={15} />
+              <span>Edit map</span>
+            </Link>
+          )}
+        </section>
+
+        {/* Campus Overview Header Card */}
+        <section className="campusHeroCard">
+          <div className="campusHeroThumb">
+            <img
+              src="/assets/campus_hero.jpg"
+              alt={organization?.name || 'Campus'}
+              onError={(e) => {
+                e.currentTarget.style.display = 'none';
+              }}
+            />
+          </div>
+
+          <div className="campusHeroBody">
+            <div className="campusHeroTitleRow">
+              <h1 className="campusHeroTitle">{organization?.name || 'ESI MAIN CAMPUS'}</h1>
+              <span className="campusHeroBadge">Campus</span>
+            </div>
+
+            <p className="campusHeroDesc">
+              {organization?.description ||
+                'Main campus of ESI, including classrooms, labs and administration.'}
             </p>
+
+            <div className="campusHeroStats">
+              <div className="campusStatPill">
+                <Building2 size={16} className="statIconBlue" />
+                <span>
+                  <strong>{buildings.length || 12}</strong> Buildings
+                </span>
+              </div>
+              <div className="campusStatPill">
+                <Map size={16} className="statIconGreen" />
+                <span>
+                  <strong>{floors.length || 5}</strong> Maps
+                </span>
+              </div>
+              <div className="campusStatPill">
+                <Maximize2 size={16} className="statIconPurple" />
+                <span>
+                  <strong>{organization?.canvasWidth || 8000} &times; {organization?.canvasHeight || 6000}</strong> Canvas size
+                </span>
+              </div>
+            </div>
           </div>
         </section>
 
-        {error ? (
+        {/* Navigation Tabs Bar */}
+        <div className="viewerTabsStrip">
+          <button
+            className={`viewerTabBtn ${activeMainTab === 'buildings' ? 'isActive' : ''}`}
+            onClick={() => setActiveMainTab('buildings')}
+          >
+            Buildings
+          </button>
+          <button
+            className={`viewerTabBtn ${activeMainTab === 'maps' ? 'isActive' : ''}`}
+            onClick={() => setActiveMainTab('maps')}
+          >
+            Maps
+          </button>
+          <button
+            className={`viewerTabBtn ${activeMainTab === 'details' ? 'isActive' : ''}`}
+            onClick={() => setActiveMainTab('details')}
+          >
+            Details
+          </button>
+        </div>
+
+        {error && (
           <StatusMessage title={error.code || 'Map failed to load'} tone="error">
             {error.message}
           </StatusMessage>
-        ) : null}
+        )}
 
         {loading ? (
-          <StatusMessage title="Loading map">Fetching the published building and floor graph.</StatusMessage>
+          <StatusMessage title="Loading campus map">
+            Fetching the published building and floor graph...
+          </StatusMessage>
         ) : (
-          <section className="viewerWorkspace">
-            <ViewerSidebar
-              buildings={buildings}
-              floors={floors}
-              activeBuildingId={activeBuildingId}
-              activeFloorId={activeFloorId}
-              onSelectBuilding={handleSelectBuilding}
-              onSelectFloor={(floorId) => {
-                setActiveFloorId(floorId);
-                setSelectedNodeId(null);
-              }}
-            />
-            <div className="viewerCanvasStage">
-              <ViewerCanvas
-                organization={organization}
-                buildings={buildings}
-                floors={floors}
-                activeFloor={activeFloor}
-                visibleFloors={visibleFloors}
-                activeFloorNumber={activeFloorNumber}
-                activeBuildingId={activeBuildingId}
-                selectedNodeId={selectedNodeId}
-                focusedNodeId={focusedNodeId}
-                route={currentRoute}
-                tool={tool}
-                routePickStep={routePickStep}
-                onSelectNode={(nodeId, node) => {
-                  if (tool === 'route' && node) {
-                    handleRoutePickNode(node);
-                    return;
-                  }
-                  setSelectedNodeId(nodeId);
-                  setSearchSelection(node || null);
-                  if (tool === 'pan') setTool('select');
-                }}
-                onSelectBuilding={(buildingId) => {
-                  handleSelectBuilding(buildingId);
-                  if (tool === 'pan') setTool('select');
-                }}
-                onFocusHandled={() => setFocusedNodeId(null)}
-              />
-              <div className="viewerCanvasOverlay">
-                <div className="viewerToolCluster" aria-label="Map tools">
-                  <button className={`toolButton ${tool === 'select' ? 'isActive' : ''}`} type="button" onClick={() => setViewerTool('select')} title="Select"><MousePointer2 size={17} /></button>
-                  <button className={`toolButton ${tool === 'pan' ? 'isActive' : ''}`} type="button" onClick={() => setViewerTool('pan')} title="Pan"><LocateFixed size={17} /></button>
-                  <button className={`toolButton ${tool === 'route' ? 'isActive' : ''}`} type="button" onClick={() => setViewerTool('route')} title="Pick route on canvas"><Route size={17} /></button>
-                </div>
-                <div className="viewerSearchFloat">
-                  <LocationSearchBox
-                    label="Search this map"
-                    organizationId={organizationId}
-                    selected={searchSelection}
-                    onSelect={(location) => {
-                      if (location) {
-                        focusLocation(location);
-                      } else {
-                        setSearchSelection(null);
-                        setSelectedNodeId(null);
-                      }
-                    }}
-                    onLocationSelected={focusLocation}
-                    displaySelectedInInput
-                    hideSelectedLocation
-                    includeBuildings
-                  />
-                </div>
-                <div className="viewerRouteFields">
-                  <LocationSearchBox
-                    label="Origin"
-                    organizationId={organizationId}
-                    selected={source}
-                    onSelect={setSource}
-                    onLocationSelected={focusLocation}
-                    displaySelectedInInput
-                    hideSelectedLocation
-                  />
-                  <LocationSearchBox
-                    label="Destination"
-                    organizationId={organizationId}
-                    selected={destination}
-                    onSelect={setDestination}
-                    onLocationSelected={focusLocation}
-                    displaySelectedInInput
-                    hideSelectedLocation
-                  />
-                </div>
-                {tool === 'route' ? (
-                  <div className="viewerRouteHint">{routePickStep === 'source' ? 'Click the route source node' : 'Click the route destination node'}</div>
-                ) : null}
-                {routeError ? <div className="viewerRouteHint viewerRouteError">{routeError.message || 'No route found.'}</div> : null}
-                {routeLoading ? <div className="viewerRouteHint viewerRouteLoading">Finding route...</div> : null}
-              {currentRoute ? (
-                <div className="routeSegmentDock viewerRouteDock">
-                  <strong>{currentRoute.totalDistance}m total</strong>
-                  <span>{routePathText}</span>
-                </div>
-              ) : null}
+          /* Master-Detail Layout */
+          <div className="viewerMasterDetailLayout">
+            {/* Left: Buildings Directory */}
+            <aside className="buildingsDirectoryCol">
+              <div className="buildingsSearchBox">
+                <Search size={15} className="searchIcon" />
+                <input
+                  type="text"
+                  placeholder="Search buildings..."
+                  value={buildingSearch}
+                  onChange={(e) => setBuildingSearch(e.target.value)}
+                />
               </div>
-            </div>
-            <ViewerDetailsPanel selectedNode={selectedNode} activeBuilding={activeBuilding} activeFloor={activeFloor} floors={floors} />
-          </section>
+
+              <div className="buildingsList">
+                {filteredBuildings.map((building) => {
+                  const isSelected = Number(building.id) === Number(activeBuildingId);
+                  const buildingFloors = getFloorsForBuilding(floors, building.id);
+                  const firstFloor = buildingFloors[0];
+
+                  return (
+                    <div
+                      key={building.id}
+                      className={`buildingListItem ${isSelected ? 'isActive' : ''}`}
+                      onClick={() => handleSelectBuilding(building.id)}
+                    >
+                      <div className="buildingThumbMini">
+                        <img
+                          src="/assets/building_thumb.jpg"
+                          alt={building.name}
+                          onError={(e) => {
+                            e.currentTarget.style.display = 'none';
+                          }}
+                        />
+                      </div>
+                      <div className="buildingListItemMeta">
+                        <h4 className="buildingListItemName">{building.name}</h4>
+                        <span className="buildingListItemSub">
+                          Level {firstFloor?.floorNumber ?? 0} &bull; {buildingFloors.length} {buildingFloors.length === 1 ? 'floor' : 'floors'}
+                        </span>
+                      </div>
+                      {isSelected && <div className="activeBuildingIndicator" />}
+                    </div>
+                  );
+                })}
+              </div>
+            </aside>
+
+            {/* Right: Building Detail & Interactive Floorplan Preview */}
+            <section className="buildingDetailCol">
+              <div className="buildingDetailCard">
+                {/* Building Header */}
+                <div className="buildingDetailHeader">
+                  <div>
+                    <h2 className="buildingDetailTitle">
+                      {activeBuilding?.name || 'A1 - Administration'}
+                    </h2>
+                    <span className="buildingLevelBadge">
+                      Level {activeFloorNumber ?? 0} &bull; {activeBuildingFloors.length} Floors
+                    </span>
+                  </div>
+
+                  {/* Level Switcher */}
+                  {activeBuildingFloors.length > 0 && (
+                    <div className="floorLevelSelector">
+                      {activeBuildingFloors.map((fl) => (
+                        <button
+                          key={fl.id}
+                          className={`floorPillBtn ${Number(activeFloorId) === Number(fl.id) ? 'isActive' : ''}`}
+                          onClick={() => {
+                            setActiveFloorId(fl.id);
+                            setSelectedNodeId(null);
+                          }}
+                        >
+                          Level {fl.floorNumber ?? fl.name}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Sub-Tabs: Overview | Floors | Map view */}
+                <div className="buildingSubTabs">
+                  <button
+                    className={`subTabBtn ${activeBuildingTab === 'overview' ? 'isActive' : ''}`}
+                    onClick={() => setActiveBuildingTab('overview')}
+                  >
+                    Overview
+                  </button>
+                  <button
+                    className={`subTabBtn ${activeBuildingTab === 'floors' ? 'isActive' : ''}`}
+                    onClick={() => setActiveBuildingTab('floors')}
+                  >
+                    Floors
+                  </button>
+                  <button
+                    className={`subTabBtn ${activeBuildingTab === 'map' ? 'isActive' : ''}`}
+                    onClick={() => setActiveBuildingTab('map')}
+                  >
+                    Map view
+                  </button>
+                </div>
+
+                {/* Building Description & POIs */}
+                <div className="buildingOverviewSection">
+                  <h4 className="overviewSubheading">Description</h4>
+                  <p className="buildingOverviewText">
+                    {activeBuilding?.description ||
+                      'Main administration and academic building with offices, reception, classrooms and conference rooms.'}
+                  </p>
+
+                  <h4 className="overviewSubheading">Points of interest</h4>
+                  <div className="poiList">
+                    {currentFloorNodes.length > 0 ? (
+                      currentFloorNodes.map((node) => (
+                        <div
+                          key={node.id}
+                          className={`poiItem ${selectedNodeId === node.id ? 'isSelected' : ''}`}
+                          onClick={() => {
+                            setSelectedNodeId(node.id);
+                            setFocusedNodeId(node.id);
+                          }}
+                        >
+                          <span className="poiRadioDot" />
+                          <span className="poiName">
+                            {node.name || node.externalIdentifier || NODE_TYPE_LABELS[node.type] || 'Location'}
+                          </span>
+                        </div>
+                      ))
+                    ) : (
+                      <>
+                        <div className="poiItem">
+                          <span className="poiRadioDot" />
+                          <span className="poiName">Reception & Information Desk</span>
+                        </div>
+                        <div className="poiItem">
+                          <span className="poiRadioDot" />
+                          <span className="poiName">Faculty Offices</span>
+                        </div>
+                        <div className="poiItem">
+                          <span className="poiRadioDot" />
+                          <span className="poiName">Main Meeting Room</span>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                {/* Floorplan 2D Canvas Stage */}
+                <div className="interactiveFloorplanStage">
+                  <ViewerCanvas
+                    organization={organization}
+                    buildings={buildings}
+                    floors={floors}
+                    activeFloor={activeFloor}
+                    visibleFloors={visibleFloors}
+                    activeFloorNumber={activeFloorNumber}
+                    activeBuildingId={activeBuildingId}
+                    selectedNodeId={selectedNodeId}
+                    focusedNodeId={focusedNodeId}
+                    route={currentRoute}
+                    tool={tool}
+                    routePickStep={routePickStep}
+                    onSelectNode={(nodeId, node) => {
+                      if (tool === 'route' && node) {
+                        handleRoutePickNode(node);
+                        return;
+                      }
+                      setSelectedNodeId(nodeId);
+                      setSearchSelection(node || null);
+                      if (tool === 'pan') setTool('select');
+                    }}
+                    onSelectBuilding={(buildingId) => {
+                      handleSelectBuilding(buildingId);
+                      if (tool === 'pan') setTool('select');
+                    }}
+                    onFocusHandled={() => setFocusedNodeId(null)}
+                  />
+
+                  {/* Canvas Floating Overlay Controls */}
+                  <div className="viewerCanvasOverlay">
+                    <div className="viewerToolCluster" aria-label="Map tools">
+                      <button
+                        className={`toolButton ${tool === 'select' ? 'isActive' : ''}`}
+                        type="button"
+                        onClick={() => setViewerTool('select')}
+                        title="Select mode"
+                      >
+                        <MousePointer2 size={16} />
+                      </button>
+                      <button
+                        className={`toolButton ${tool === 'pan' ? 'isActive' : ''}`}
+                        type="button"
+                        onClick={() => setViewerTool('pan')}
+                        title="Pan canvas"
+                      >
+                        <LocateFixed size={16} />
+                      </button>
+                      <button
+                        className={`toolButton ${tool === 'route' ? 'isActive' : ''}`}
+                        type="button"
+                        onClick={() => setViewerTool('route')}
+                        title="Find route"
+                      >
+                        <Route size={16} />
+                      </button>
+                    </div>
+
+                    <div className="viewerSearchFloat">
+                      <LocationSearchBox
+                        label="Search this map"
+                        organizationId={organizationId}
+                        selected={searchSelection}
+                        onSelect={(location) => {
+                          if (location) {
+                            focusLocation(location);
+                          } else {
+                            setSearchSelection(null);
+                            setSelectedNodeId(null);
+                          }
+                        }}
+                        onLocationSelected={focusLocation}
+                        displaySelectedInInput
+                        hideSelectedLocation
+                        includeBuildings
+                      />
+                    </div>
+
+                    <div className="viewerRouteFields">
+                      <LocationSearchBox
+                        label="Origin"
+                        organizationId={organizationId}
+                        selected={source}
+                        onSelect={setSource}
+                        onLocationSelected={focusLocation}
+                        displaySelectedInInput
+                        hideSelectedLocation
+                      />
+                      <LocationSearchBox
+                        label="Destination"
+                        organizationId={organizationId}
+                        selected={destination}
+                        onSelect={setDestination}
+                        onLocationSelected={focusLocation}
+                        displaySelectedInInput
+                        hideSelectedLocation
+                      />
+                    </div>
+
+                    {tool === 'route' && (
+                      <div className="viewerRouteHint">
+                        {routePickStep === 'source'
+                          ? 'Click the starting node on the canvas'
+                          : 'Click the destination node on the canvas'}
+                      </div>
+                    )}
+                    {routeError && (
+                      <div className="viewerRouteHint viewerRouteError">
+                        {routeError.message || 'No route found between selected points.'}
+                      </div>
+                    )}
+                    {routeLoading && (
+                      <div className="viewerRouteHint viewerRouteLoading">
+                        Calculating optimal path...
+                      </div>
+                    )}
+
+                    {currentRoute && (
+                      <div className="routeSegmentDock viewerRouteDock">
+                        <strong>{currentRoute.totalDistance}m total distance</strong>
+                        <span>{routePathText}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </section>
+          </div>
         )}
+
         {webMcpConfirmationModal}
         {webMcpActivityIndicator}
       </main>
