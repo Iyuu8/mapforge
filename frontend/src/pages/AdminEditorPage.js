@@ -21,7 +21,6 @@ import {
   Route,
   Save,
   Search,
-  SlidersHorizontal,
   Trash2,
   Undo2,
 } from 'lucide-react';
@@ -475,8 +474,6 @@ function EditorLayers({
   onAddFloor,
   onAddNode,
   onUploadClick,
-  activeTab = 'layers',
-  onTabChange,
   gridEnabled = true,
   onGridEnabledChange,
   snapEnabled = false,
@@ -532,39 +529,32 @@ function EditorLayers({
 
   return (
     <aside className="editorSidebar">
-      {/* Top Tab Bar: Layers | Properties */}
-      <div className="editorSidebarTabs">
+      {/* Organization / Campus Selector Card */}
+      <div className="sidebarOrgWrapper">
         <button
-          className={`sidebarTabBtn ${activeTab === 'layers' ? 'isActive' : ''}`}
+          className={`orgSelectorBtn ${selected?.kind === 'organization' ? 'isActive' : ''}`}
           type="button"
-          onClick={() => onTabChange?.('layers')}
+          onClick={onSelectOrganization}
+          title="Organization Settings"
         >
-          <Layers size={14} />
-          <span>Layers</span>
-        </button>
-        <button
-          className={`sidebarTabBtn ${activeTab === 'properties' ? 'isActive' : ''}`}
-          type="button"
-          onClick={() => onTabChange?.('properties')}
-        >
-          <SlidersHorizontal size={14} />
-          <span>Properties</span>
+          <div className="orgIconBadge">
+            <Building2 size={15} />
+          </div>
+          <span className="orgSelectorName">{organization?.name || 'ESI MAIN CAMPUS'}</span>
+          <ChevronsUpDown size={14} className="orgChevron" />
         </button>
       </div>
 
-      <button className={`layerRow ${selected?.kind === 'organization' ? 'isActive' : ''}`} type="button" onClick={onSelectOrganization}>
-        <ChevronsUpDown size={15} />
-        <span>{organization?.name || 'Organization'}</span>
-      </button>
-
       {/* Campus Structure Section (matching design) */}
       <section className="structureTreeSection">
-        <h3 className="structureTreeHeader">Campus Structure</h3>
+        <div className="structureHeaderRow">
+          <h3 className="structureTreeHeader">Campus Structure</h3>
+        </div>
         <div className="structureSearchBox">
           <Search size={14} className="searchIcon" />
           <input
             type="text"
-            placeholder="Search buildings, floors, or nodes..."
+            placeholder="Search campus..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
@@ -2067,7 +2057,7 @@ function FloorPopover({ building, onCreate, onCancel }) {
   const [draft, setDraft] = useState({ name: 'Ground Floor', floorNumber: 0 });
   return (
     <form className="floorPopover" onSubmit={(event) => { event.preventDefault(); onCreate(draft); }}>
-      <strong>Add floor to {building?.name}</strong>
+      <h3>Add floor to {building?.name}</h3>
       <input value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} placeholder="Floor name" required />
       <input type="number" value={draft.floorNumber} onChange={(event) => setDraft({ ...draft, floorNumber: event.target.value })} required />
       <div>
@@ -2083,7 +2073,6 @@ export default function AdminEditorPage() {
   const navigate = useNavigate();
   const { isAdmin, user } = useAuth();
   const fileInputRef = useRef(null);
-  const [editorSidebarTab, setEditorSidebarTab] = useState('layers');
   const [organization, setOrganization] = useState(null);
   const [buildings, setBuildings] = useState([]);
   const [floors, setFloors] = useState([]);
@@ -3228,8 +3217,6 @@ export default function AdminEditorPage() {
                 onAddFloor={() => setFloorPopoverOpen(true)}
                 onAddNode={() => setActiveTool('addNode')}
                 onUploadClick={() => fileInputRef.current?.click()}
-                activeTab={editorSidebarTab}
-                onTabChange={setEditorSidebarTab}
                 gridEnabled={gridEnabled}
                 onGridEnabledChange={setGridEnabled}
                 snapEnabled={snapEnabled}

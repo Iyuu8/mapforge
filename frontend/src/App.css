@@ -2330,10 +2330,10 @@ button, input, select, textarea {
 /* Workspace Layout */
 .editorWorkspace {
   display: grid;
-  grid-template-columns: 280px minmax(0, 1fr) 280px;
-  gap: 12px;
+  grid-template-columns: 290px minmax(0, 1fr) 290px;
+  gap: 14px;
   height: 100%;
-  padding: 10px 12px;
+  padding: 12px 14px;
   overflow: hidden;
   background: var(--dark-bg);
 }
@@ -2343,50 +2343,128 @@ button, input, select, textarea {
   background: var(--dark-surface);
   border: 1px solid var(--dark-border);
   border-radius: var(--radius-lg);
-  padding: 14px;
+  padding: 16px;
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 16px;
   overflow-y: auto;
   box-shadow: var(--shadow-md);
 }
 
-.editorSidebarTabs {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 4px;
-  padding: 3px;
-  border-radius: var(--radius-md);
-  background: rgba(0, 0, 0, 0.25);
+/* Organization Selector Card */
+.sidebarOrgWrapper {
+  margin-bottom: 2px;
 }
 
-.sidebarTabBtn {
+.orgSelectorBtn,
+.layerRow.orgSelectorBtn {
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 6px 10px;
-  border-radius: var(--radius-sm);
-  background: transparent;
-  border: none;
-  color: var(--dark-muted);
-  font-size: 0.82rem;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #FFFFFF;
+  font-size: 0.86rem;
   font-weight: 700;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  text-align: left;
+}
+
+.orgSelectorBtn:hover {
+  background: rgba(255, 255, 255, 0.09);
+  border-color: rgba(255, 255, 255, 0.18);
+  transform: translateY(-1px);
+}
+
+.orgSelectorBtn.isActive {
+  background: rgba(16, 185, 129, 0.15);
+  border-color: rgba(16, 185, 129, 0.4);
+  color: #34D399;
+  box-shadow: 0 0 12px rgba(16, 185, 129, 0.18);
+}
+
+.orgIconBadge {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: var(--radius-sm);
+  background: rgba(16, 185, 129, 0.15);
+  color: #34D399;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  flex-shrink: 0;
+}
+
+.orgSelectorName {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.orgChevron {
+  color: #64748B;
+  flex-shrink: 0;
+  transition: color var(--transition-fast);
+}
+
+.orgSelectorBtn:hover .orgChevron {
+  color: #CBD5E1;
+}
+
+/* Generic Layer Row */
+.layerRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: #CBD5E1;
+  font-size: 0.82rem;
+  font-weight: 600;
   cursor: pointer;
   transition: all var(--transition-fast);
 }
 
-.sidebarTabBtn.isActive {
-  background: var(--primary);
+.layerRow:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.14);
   color: #FFFFFF;
 }
 
-/* Campus Structure Tree (matching design) */
+.layerRow.isActive {
+  background: rgba(16, 185, 129, 0.14);
+  border-color: rgba(16, 185, 129, 0.35);
+  color: #34D399;
+}
+
+/* Campus Structure Tree */
+.structureTreeSection {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.structureHeaderRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
 .structureTreeHeader {
-  font-size: 0.95rem;
+  font-size: 0.88rem;
   font-weight: 800;
   color: #FFFFFF;
-  margin: 0 0 10px 0;
+  margin: 0;
   letter-spacing: -0.01em;
 }
 
@@ -2394,27 +2472,27 @@ button, input, select, textarea {
   position: relative;
   display: flex;
   align-items: center;
-  margin-bottom: 12px;
+  margin-bottom: 4px;
 }
 
 .structureSearchBox .searchIcon {
   position: absolute;
-  left: 10px;
+  left: 11px;
   color: #64748B;
   pointer-events: none;
 }
 
 .structureSearchBox input {
   width: 100%;
-  height: 34px;
-  padding: 0 40px 0 32px;
+  height: 36px;
+  padding: 0 48px 0 34px;
   background: #0E1724;
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: var(--radius-md);
   color: #FFFFFF;
   font-size: 0.8rem;
   outline: none;
-  transition: border-color var(--transition-fast);
+  transition: all var(--transition-fast);
 }
 
 .structureSearchBox input:focus {
@@ -2435,22 +2513,30 @@ button, input, select, textarea {
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 4px;
-  padding: 2px 5px;
+  padding: 2px 6px;
   pointer-events: none;
 }
 
 .structureTreeList {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
+  max-height: 320px;
+  overflow-y: auto;
+  padding-right: 2px;
+}
+
+.treeBuildingGroup {
+  display: flex;
+  flex-direction: column;
 }
 
 .treeBuildingRow {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 7px;
   width: 100%;
-  padding: 6px 8px;
+  padding: 7px 10px;
   border-radius: var(--radius-md);
   background: transparent;
   border: 1px solid transparent;
@@ -2463,26 +2549,27 @@ button, input, select, textarea {
 }
 
 .treeBuildingRow:hover {
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.06);
 }
 
 .treeBuildingRow.isActive {
-  background: rgba(255, 255, 255, 0.08);
-  border-color: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.09);
+  border-color: rgba(255, 255, 255, 0.14);
 }
 
 .treeChevronBtn {
   display: grid;
   place-items: center;
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
   border: none;
   background: transparent;
   color: #64748B;
   cursor: pointer;
-  border-radius: 3px;
+  border-radius: 4px;
   padding: 0;
   flex-shrink: 0;
+  transition: all var(--transition-fast);
 }
 
 .treeChevronBtn:hover {
@@ -2493,8 +2580,8 @@ button, input, select, textarea {
 .treeBadge {
   display: grid;
   place-items: center;
-  width: 22px;
-  height: 22px;
+  width: 24px;
+  height: 24px;
   border-radius: 6px;
   flex-shrink: 0;
 }
@@ -2525,18 +2612,18 @@ button, input, select, textarea {
 .treeFloorsContainer {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  margin-left: 14px;
-  padding-left: 8px;
+  gap: 4px;
+  margin: 4px 0 6px 14px;
+  padding-left: 10px;
   border-left: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .treeFloorRow {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 7px;
   width: 100%;
-  padding: 5px 8px;
+  padding: 6px 10px;
   border-radius: var(--radius-md);
   background: transparent;
   border: 1px solid transparent;
@@ -2549,13 +2636,13 @@ button, input, select, textarea {
 }
 
 .treeFloorRow:hover {
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.06);
   color: #FFFFFF;
 }
 
 .treeFloorRow.isActive {
-  background: rgba(16, 185, 129, 0.12);
-  border-color: rgba(16, 185, 129, 0.3);
+  background: rgba(16, 185, 129, 0.14);
+  border-color: rgba(16, 185, 129, 0.35);
   color: #34D399;
 }
 
@@ -2569,9 +2656,9 @@ button, input, select, textarea {
 .treeNodesContainer {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  margin-left: 20px;
-  padding-left: 8px;
+  gap: 3px;
+  margin: 4px 0 6px 18px;
+  padding-left: 10px;
   border-left: 1px solid rgba(255, 255, 255, 0.08);
 }
 
@@ -2598,8 +2685,8 @@ button, input, select, textarea {
 }
 
 .treeNodeRow.isActive {
-  background: rgba(20, 184, 166, 0.15);
-  border-color: rgba(20, 184, 166, 0.35);
+  background: rgba(20, 184, 166, 0.16);
+  border-color: rgba(20, 184, 166, 0.38);
   color: #2DD4BF;
   box-shadow: 0 0 10px rgba(20, 184, 166, 0.15);
 }
@@ -2620,9 +2707,9 @@ button, input, select, textarea {
   align-items: center;
   gap: 6px;
   width: 100%;
-  padding: 6px 10px;
-  margin-top: 4px;
-  border: 1px dashed rgba(56, 189, 248, 0.3);
+  padding: 6px 12px;
+  margin-top: 6px;
+  border: 1px dashed rgba(56, 189, 248, 0.35);
   border-radius: var(--radius-md);
   background: rgba(56, 189, 248, 0.06);
   color: #38BDF8;
@@ -2634,27 +2721,29 @@ button, input, select, textarea {
 
 .treeAddNodeBtn:hover {
   background: rgba(56, 189, 248, 0.14);
-  border-color: rgba(56, 189, 248, 0.5);
+  border-color: rgba(56, 189, 248, 0.55);
 }
 
 /* Reference Images Block */
 .referenceLayerBlock {
   margin-top: 6px;
+  padding-top: 14px;
+  border-top: 1px solid var(--dark-border);
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
 }
 
 .sidebarSectionHeader {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 4px;
+  margin-bottom: 2px;
 }
 
 .sidebarSectionHeader h3 {
   font-size: 0.78rem;
-  font-weight: 700;
+  font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: var(--dark-muted);
@@ -2664,20 +2753,21 @@ button, input, select, textarea {
 .sidebarSectionActionBtn {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 2px 7px;
+  gap: 5px;
+  padding: 3px 8px;
   border-radius: var(--radius-sm);
   background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   color: #94A3B8;
-  font-size: 0.72rem;
+  font-size: 0.74rem;
   font-weight: 600;
   cursor: pointer;
+  transition: all var(--transition-fast);
 }
 
 .sidebarSectionActionBtn:hover {
   background: rgba(255, 255, 255, 0.12);
-  color: white;
+  color: #FFFFFF;
 }
 
 .imageLayerRow {
@@ -2722,16 +2812,17 @@ button, input, select, textarea {
 
 /* Settings block */
 .editorSettingsBlock {
-  padding-top: 10px;
+  margin-top: 6px;
+  padding-top: 14px;
   border-top: 1px solid var(--dark-border);
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
 }
 
 .editorSettingsBlock h3 {
   font-size: 0.78rem;
-  font-weight: 700;
+  font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: var(--dark-muted);
@@ -2742,7 +2833,7 @@ button, input, select, textarea {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 2px 0;
+  padding: 3px 0;
 }
 
 .settingLabel {
@@ -2971,20 +3062,52 @@ button, input, select, textarea {
   background: var(--dark-surface);
   border: 1px solid var(--dark-border);
   border-radius: var(--radius-lg);
-  padding: 16px;
+  padding: 18px;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 14px;
   overflow-y: auto;
   box-shadow: var(--shadow-md);
   color: #E2E8F0;
 }
 
-.inspectorPanel h2 {
-  font-size: 0.95rem;
+.panelHeader {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--dark-border);
+  margin-bottom: 2px;
+}
+
+.panelHeader h2 {
+  font-size: 0.98rem;
   font-weight: 800;
   margin: 0;
   color: #FFFFFF;
+  letter-spacing: -0.01em;
+}
+
+.panelHeader svg {
+  color: #10B981;
+  flex-shrink: 0;
+}
+
+.readOnlyMetric {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 9px 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-md);
+  font-size: 0.82rem;
+  color: #94A3B8;
+}
+
+.readOnlyMetric strong {
+  color: #FFFFFF;
+  font-weight: 700;
 }
 
 .inspectorField {
@@ -2993,21 +3116,152 @@ button, input, select, textarea {
   gap: 6px;
   font-size: 0.82rem;
   color: #94A3B8;
+  margin-bottom: 4px;
 }
 
-.inspectorField input, .inspectorField select, .inspectorField textarea {
-  min-height: 36px;
-  padding: 6px 10px;
-  border-radius: var(--radius-sm);
+.inspectorField span {
+  font-size: 0.74rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #94A3B8;
+}
+
+.inspectorField input,
+.inspectorField select,
+.inspectorField textarea {
+  min-height: 38px;
+  padding: 7px 11px;
+  border-radius: var(--radius-md);
   background: #0E1724;
-  border: 1px solid var(--dark-border);
+  border: 1px solid rgba(255, 255, 255, 0.12);
   color: #FFFFFF;
-  font-size: 0.86rem;
+  font-size: 0.85rem;
+  outline: none;
+  transition: all var(--transition-fast);
 }
 
-.inspectorField input:focus {
-  outline: none;
-  border-color: var(--primary);
+.inspectorField input:focus,
+.inspectorField select:focus,
+.inspectorField textarea:focus {
+  border-color: rgba(20, 184, 166, 0.6);
+  box-shadow: 0 0 0 2px rgba(20, 184, 166, 0.15);
+}
+
+.inspectorField input[type="color"] {
+  height: 40px;
+  padding: 3px;
+  cursor: pointer;
+  background: #0E1724;
+  border-radius: var(--radius-md);
+}
+
+.inspectorField input[type="range"] {
+  accent-color: #10B981;
+  cursor: pointer;
+}
+
+.coordinateGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.checkboxRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: #CBD5E1;
+  cursor: pointer;
+  padding: 4px 0;
+  user-select: none;
+}
+
+.checkboxRow input[type="checkbox"] {
+  accent-color: #10B981;
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+.statusPill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  align-self: flex-start;
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  background: rgba(255, 255, 255, 0.08);
+  color: #E2E8F0;
+  margin-top: 2px;
+}
+
+.statusPill.status-published {
+  background: rgba(16, 185, 129, 0.15);
+  color: #34D399;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.statusPill.status-draft {
+  background: rgba(245, 158, 11, 0.15);
+  color: #FBBF24;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.inspectorActions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 8px;
+  padding-top: 16px;
+  border-top: 1px solid var(--dark-border);
+}
+
+.inspectorActions button {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 9px 14px;
+  min-height: 38px;
+  border-radius: var(--radius-md);
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.inspectorActions .buttonPrimary {
+  background: var(--primary);
+  color: #FFFFFF;
+  border: none;
+}
+
+.inspectorActions .buttonPrimary:hover {
+  background: var(--primary-hover);
+}
+
+.inspectorActions .buttonDanger {
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: #F87171;
+}
+
+.inspectorActions .buttonDanger:hover:not(:disabled) {
+  background: rgba(239, 68, 68, 0.25);
+  color: #FFFFFF;
+}
+
+.inspectorActions .buttonDanger:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
 }
 
 /* ==========================================================================
@@ -3165,6 +3419,31 @@ button, input, select, textarea {
   font-weight: 800;
   margin: 0;
   color: var(--ink);
+}
+
+.editorFrame .confirmModal {
+  background: #121D2B;
+  border-color: rgba(255, 255, 255, 0.15);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
+  color: #FFFFFF;
+}
+
+.editorFrame .confirmModal h2 {
+  color: #FFFFFF;
+}
+
+.editorFrame .confirmModal .modalBody {
+  color: #CBD5E1;
+}
+
+.editorFrame .confirmModal .inspectorField span {
+  color: #94A3B8;
+}
+
+.editorFrame .confirmModal .inspectorField input {
+  background: #0E1724;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: #FFFFFF;
 }
 
 .modalBody {
