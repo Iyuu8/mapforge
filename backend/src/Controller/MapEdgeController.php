@@ -2,10 +2,12 @@
 
 namespace App\Controller;
 
-use App\Service\ConnectionService;
-use App\Service\MapNodeService;
-use App\Service\ErrorFormatter;
 use App\Entity\MapEdge;
+use App\Service\ConnectionService;
+use App\Service\ErrorFormatter;
+use App\Service\MapNodeService;
+use App\Service\OrganizationSecurityService;
+use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -19,24 +21,15 @@ class MapEdgeController extends AbstractController
         private ConnectionService $connectionService,
         private MapNodeService $mapNodeService,
         private ErrorFormatter $errorFormatter,
+        private OrganizationSecurityService $securityService,
     ) {}
 
     /**
      * POST /api/edges
-     * Admin only.
-     * Body: {
-     *   "fromNodeId": int, "toNodeId": int, "distance": float,
-     *   "bidirectional"?: bool (default true), "accessible"?: bool (default true)
-     * }
-     * ConnectionService::connectNodes already validates:
-     *   - distance > 0
-     *   - fromNode !== toNode
-     *   - no duplicate connection (either direction)
-     * Cross-building edges ARE allowed (the same-building restriction was
-     * deliberately removed in ConnectionService - see comment in that file).
+     * Authorized: Super Admin or Organization Account (for their own map).
      */
-    #[Route('', name:'create_edge',methods: ['POST'])]
-    #[IsGranted('ROLE_ADMIN')]
+    #[Route('', name: 'create_edge', methods: ['POST'])]
+    #[IsGranted('ROLE_ORGANIZATION')]
     public function create(Request $request): JsonResponse
     {
         $payload = json_decode($request->getContent(), true);
@@ -62,6 +55,12 @@ class MapEdgeController extends AbstractController
             );
         }
 
+        // Horizontal authorization check
+        $accessError = $this->securityService->checkNodeAccess($this->getUser(), $fromNode);
+        if ($accessError) {
+            return $accessError;
+        }
+
         try {
             $edge = $this->connectionService->connectNodes(
                 $fromNode,
@@ -71,7 +70,6 @@ class MapEdgeController extends AbstractController
                 $payload['accessible'] ?? true
             );
         } catch (\DomainException $e) {
-            // "already exists" -> 409 conflict, everything else (bad distance, self-loop) -> 422
             $isConflict = str_contains($e->getMessage(), 'already exists');
             return new JsonResponse(
                 $this->errorFormatter->formatError($e->getMessage(), $isConflict ? 'CONFLICT' : 'VALIDATION_ERROR', $isConflict ? 409 : 422),
@@ -79,26 +77,16 @@ class MapEdgeController extends AbstractController
             );
         }
 
-        // NOTE: creating an edge changes the graph shape but does not currently
-        // reset the parent building(s) status to DRAFT inside ConnectionService.
-        // Consider adding that (mirroring MapNodeService/FloorService behaviour)
-        // if you want "any structural change reverts to DRAFT" to hold for edges too.
-
         return new JsonResponse($this->serializeEdge($edge), 201);
     }
 
     /**
      * PUT/PATCH /api/edges/{id}
-     * Admin only.
-     * Body (all fields optional): {
-     *   "distance": float,
-     *   "bidirectional": bool
-     *   // "accessible": bool
-     * }
+     * Checks horizontal authorization.
      */
     #[Route('/{id}', name: 'update_edge', methods: ['PUT', 'PATCH'], requirements: ['id' => '\d+'])]
-    #[IsGranted('ROLE_ADMIN')]
-    public function update(int $id, Request $request, \Doctrine\ORM\EntityManagerInterface $em): JsonResponse
+    #[IsGranted('ROLE_ORGANIZATION')]
+    public function update(int $id, Request $request, EntityManagerInterface $em): JsonResponse
     {
         $edge = $this->connectionService->findEdge($id);
         if (!$edge) {
@@ -106,6 +94,12 @@ class MapEdgeController extends AbstractController
                 $this->errorFormatter->formatError('Edge not found.', 'NOT_FOUND', 404),
                 404
             );
+        }
+
+        // Horizontal authorization check
+        $accessError = $this->securityService->checkNodeAccess($this->getUser(), $edge->getFromNode());
+        if ($accessError) {
+            return $accessError;
         }
 
         $payload = json_decode($request->getContent(), true);
@@ -134,20 +128,8 @@ class MapEdgeController extends AbstractController
             $isUpdated = true;
         }
 
-        // --- ACCESSIBLE FIELD INSTRUCTIONS ---
-        // To allow editing the accessible field, uncomment the following lines:
-        // if (isset($payload['accessible'])) {
-        //     $edge->setAccessible((bool) $payload['accessible']);
-        //     $isUpdated = true;
-        // }
-        // -------------------------------------
-
         if ($isUpdated) {
-            // Explicitly update the timestamp as requested 
-            // (Note: You can skip this line if your MapEdge entity uses Doctrine's #[PreUpdate] lifecycle callback)
             $edge->setUpdatedAt(new \DateTimeImmutable());
-
-            // Flush the changes directly (or move this to a $this->connectionService->updateEdge($edge) method)
             $em->flush();
         }
 
@@ -156,10 +138,10 @@ class MapEdgeController extends AbstractController
 
     /**
      * DELETE /api/edges/{id}
-     * Admin only.
+     * Checks horizontal authorization.
      */
-    #[Route('/{id}', name:'delete_edge',methods: ['DELETE'], requirements: ['id' => '\d+'])]
-    #[IsGranted('ROLE_ADMIN')]
+    #[Route('/{id}', name: 'delete_edge', methods: ['DELETE'], requirements: ['id' => '\d+'])]
+    #[IsGranted('ROLE_ORGANIZATION')]
     public function delete(int $id): JsonResponse
     {
         $edge = $this->connectionService->findEdge($id);
@@ -170,13 +152,17 @@ class MapEdgeController extends AbstractController
             );
         }
 
+        // Horizontal authorization check
+        $accessError = $this->securityService->checkNodeAccess($this->getUser(), $edge->getFromNode());
+        if ($accessError) {
+            return $accessError;
+        }
+
         $this->connectionService->disconnectNodes($edge);
 
         return new JsonResponse(null, 204);
     }
 
-
-    // helper function
     private function serializeEdge(MapEdge $edge): array
     {
         return [

@@ -16,6 +16,8 @@ use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 use Symfony\Component\HttpFoundation\Response;
 
+use App\Service\OrganizationSecurityService;
+
 #[Route('/api')]
 class BuildingController extends AbstractController
 {
@@ -24,6 +26,7 @@ class BuildingController extends AbstractController
         private BuildingService $buildingService,
         private PublishService $publishService,
         private ErrorFormatter $errorFormatter,
+        private OrganizationSecurityService $securityService,
     ) {}
 
     /**
@@ -34,7 +37,7 @@ class BuildingController extends AbstractController
 
     // possible to create a building even without geometry ( borders )
     #[Route('/buildings', name:'create_building',methods: ['POST'])]
-    #[IsGranted('ROLE_ADMIN')]
+    #[IsGranted('ROLE_ORGANIZATION')]
     public function create(Request $request): JsonResponse
     {
         $payload = json_decode($request->getContent(), true);
@@ -52,6 +55,12 @@ class BuildingController extends AbstractController
                 $this->errorFormatter->formatError('Organization not found.', 'NOT_FOUND', 404),
                 404
             );
+        }
+
+        // Horizontal authorization check
+        $accessError = $this->securityService->checkOrganizationAccess($this->getUser(), $organization);
+        if ($accessError) {
+            return $accessError;
         }
 
         if( strtoupper($payload['name'])=='DEFAULT CAMPUS'){ 
@@ -102,7 +111,7 @@ class BuildingController extends AbstractController
 
     // possible to use to update the geometry of the building
     #[Route('/buildings/{id}', name:'update_building',methods: ['PUT'], requirements: ['id' => '\d+'])]
-    #[IsGranted('ROLE_ADMIN')]
+    #[IsGranted('ROLE_ORGANIZATION')]
     public function update(int $id, Request $request): JsonResponse
     {
         $building = $this->buildingService->findBuilding($id);
@@ -111,6 +120,12 @@ class BuildingController extends AbstractController
                 $this->errorFormatter->formatError('Building not found.', 'NOT_FOUND', 404),
                 404
             );
+        }
+
+        // Horizontal authorization check
+        $accessError = $this->securityService->checkBuildingAccess($this->getUser(), $building);
+        if ($accessError) {
+            return $accessError;
         }
 
         $payload = json_decode($request->getContent(), true) ?? [];
@@ -126,7 +141,7 @@ class BuildingController extends AbstractController
 
     // puglishes a building to be visible to the users in the organization
     #[Route('/buildings/{id}/publish', name:'publish_building',methods: ['POST'], requirements: ['id' => '\d+'])]
-    #[IsGranted('ROLE_ADMIN')]
+    #[IsGranted('ROLE_ORGANIZATION')]
     public function publish(int $id): JsonResponse
     {
         $building = $this->buildingService->findBuilding($id);
@@ -135,6 +150,12 @@ class BuildingController extends AbstractController
                 $this->errorFormatter->formatError('Building not found.', 'NOT_FOUND', 404),
                 404
             );
+        }
+
+        // Horizontal authorization check
+        $accessError = $this->securityService->checkBuildingAccess($this->getUser(), $building);
+        if ($accessError) {
+            return $accessError;
         }
 
         $result = $this->publishService->publish($building);
@@ -237,13 +258,19 @@ class BuildingController extends AbstractController
     }
 
     #[Route('/buildings/{id}',name:'delete_building',methods:['DELETE'])]
-    #[IsGranted('ROLE_ADMIN')]
+    #[IsGranted('ROLE_ORGANIZATION')]
     public function deleteBuilding(int $id) : JsonResponse {
         $building = $this->buildingService->findBuilding($id);
         if(!$building) return new JsonResponse(
             $this->errorFormatter->formatError('Building not found.', 'NOT_FOUND', 404),
             404
         );
+
+        // Horizontal authorization check
+        $accessError = $this->securityService->checkBuildingAccess($this->getUser(), $building);
+        if ($accessError) {
+            return $accessError;
+        }
 
         try {
             $this->buildingService->deleteBuilding($building);

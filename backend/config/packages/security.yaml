@@ -12,7 +12,9 @@ security:
                 property: email
 
     role_hierarchy:
-        ROLE_ADMIN:       ROLE_USER
+        ROLE_SUPER_ADMIN: [ROLE_ADMIN, ROLE_ORGANIZATION, ROLE_USER]
+        ROLE_ADMIN:       [ROLE_ORGANIZATION, ROLE_USER]
+        ROLE_ORGANIZATION: [ROLE_USER]
 
     firewalls:
         dev:
@@ -55,6 +57,7 @@ security:
     access_control:
         - { path: ^/api/login_check, roles: PUBLIC_ACCESS }
         - { path: ^/api/register, roles: PUBLIC_ACCESS }
+        - { path: ^/api/super-admin, roles: ROLE_SUPER_ADMIN }
         - { path: ^/api, roles: PUBLIC_ACCESS }
 
 when@test:

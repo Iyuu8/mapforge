@@ -35,6 +35,9 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Column]
     private ?\DateTimeImmutable $createdAt = null;
 
+    #[ORM\Column(length: 30, options: ['default' => 'ACTIVE'])]
+    private string $status = 'ACTIVE';
+
     public function getId(): ?int
     {
         return $this->id;
@@ -126,5 +129,27 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         $this->createdAt = $createdAt;
 
         return $this;
+    }
+
+    public function getStatus(): string
+    {
+        return $this->status;
+    }
+
+    public function setStatus(string $status): static
+    {
+        $this->status = $status;
+
+        return $this;
+    }
+
+    public function isSuperAdmin(): bool
+    {
+        return in_array('ROLE_SUPER_ADMIN', $this->getRoles(), true);
+    }
+
+    public function isOrganization(): bool
+    {
+        return in_array('ROLE_ORGANIZATION', $this->getRoles(), true);
     }
 }

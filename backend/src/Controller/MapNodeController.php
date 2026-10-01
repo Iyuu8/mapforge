@@ -2,10 +2,11 @@
 
 namespace App\Controller;
 
-use App\Service\MapNodeService;
-use App\Service\FloorService;
-use App\Service\ErrorFormatter;
 use App\Entity\MapNode;
+use App\Service\ErrorFormatter;
+use App\Service\FloorService;
+use App\Service\MapNodeService;
+use App\Service\OrganizationSecurityService;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -19,20 +20,19 @@ class MapNodeController extends AbstractController
         private MapNodeService $mapNodeService,
         private FloorService $floorService,
         private ErrorFormatter $errorFormatter,
+        private OrganizationSecurityService $securityService,
     ) {}
 
     /**
      * POST /api/nodes
-     * Admin only.
+     * Authorized: Super Admin or Organization Account (for their own map).
      * Body: {
      *   "floorId": int, "externalIdentifier": string, "name": string, "type": string,
      *   "xCoord"?: float, "yCoord"?: float, "metadata"?: array, "geometry"?: array
      * }
-     * If xCoord/yCoord omitted, MapNodeService delegates to LayoutEngine.
-     * Throws \DomainException for invalid type or duplicate externalIdentifier on floor.
      */
-    #[Route('', name:'create_node',methods: ['POST'])]
-    #[IsGranted('ROLE_ADMIN')]
+    #[Route('', name: 'create_node', methods: ['POST'])]
+    #[IsGranted('ROLE_ORGANIZATION')]
     public function create(Request $request): JsonResponse
     {
         $payload = json_decode($request->getContent(), true);
@@ -54,6 +54,12 @@ class MapNodeController extends AbstractController
                 $this->errorFormatter->formatError('Floor not found.', 'NOT_FOUND', 404),
                 404
             );
+        }
+
+        // Horizontal authorization check
+        $accessError = $this->securityService->checkFloorAccess($this->getUser(), $floor);
+        if ($accessError) {
+            return $accessError;
         }
 
         $name = trim((string) ($payload['name'] ?? ''));
@@ -114,11 +120,8 @@ class MapNodeController extends AbstractController
 
     /**
      * GET /api/nodes/{id}
-     * Not explicitly in the endpoint table, but useful for the agent's get_node
-     * WebMCP tool and for the editor's inspector panel.
-     * Admin: always visible. Public/user: only if parent building is PUBLISHED.
      */
-    #[Route('/{id}', name:'get_node',methods: ['GET'], requirements: ['id' => '\d+'])]
+    #[Route('/{id}', name: 'get_node', methods: ['GET'], requirements: ['id' => '\d+'])]
     public function getOne(int $id): JsonResponse
     {
         $node = $this->mapNodeService->findNode($id);
@@ -129,9 +132,11 @@ class MapNodeController extends AbstractController
             );
         }
 
-        
+        $user = $this->getUser();
+        $canEdit = $this->securityService->canEditNode($user, $node);
         $isPublished = $node->getFloor()->getBuilding()->getStatus() === 'PUBLISHED';
-        if (!$this->isGranted('ROLE_ADMIN') && !$isPublished) {
+
+        if (!$canEdit && !$isPublished) {
             return new JsonResponse(
                 $this->errorFormatter->formatError('Node not found.', 'NOT_FOUND', 404),
                 404
@@ -143,13 +148,10 @@ class MapNodeController extends AbstractController
 
     /**
      * PUT /api/nodes/{id}
-     * Admin only.
-     * Body: any subset of { name, type, xCoord, yCoord, metadata, geometry }.
-     * Used both by manual drag-to-move (xCoord/yCoord only) and by the agent's
-     * update_node WebMCP tool.
+     * Checks horizontal authorization.
      */
-    #[Route('/{id}', name:'update_node',methods: ['PUT'], requirements: ['id' => '\d+'])]
-    #[IsGranted('ROLE_ADMIN')]
+    #[Route('/{id}', name: 'update_node', methods: ['PUT'], requirements: ['id' => '\d+'])]
+    #[IsGranted('ROLE_ORGANIZATION')]
     public function update(int $id, Request $request): JsonResponse
     {
         $node = $this->mapNodeService->findNode($id);
@@ -158,6 +160,12 @@ class MapNodeController extends AbstractController
                 $this->errorFormatter->formatError('Node not found.', 'NOT_FOUND', 404),
                 404
             );
+        }
+
+        // Horizontal authorization check
+        $accessError = $this->securityService->checkNodeAccess($this->getUser(), $node);
+        if ($accessError) {
+            return $accessError;
         }
 
         $payload = json_decode($request->getContent(), true) ?? [];
@@ -176,14 +184,10 @@ class MapNodeController extends AbstractController
 
     /**
      * DELETE /api/nodes/{id}
-     * Admin only. Deletes dependent edges too (handled inside MapNodeService::deleteNode,
-     * which returns the list of removed edge IDs) - per plan §17, item 7: "Deleted nodes
-     * cannot remain referenced by edges."
-     * The UI/agent is expected to have already confirmed this destructive action
-     * (plan §13, §25.6 - destructive ops must be guarded before reaching this endpoint).
+     * Checks horizontal authorization.
      */
-    #[Route('/{id}', name:'delete_node',methods: ['DELETE'], requirements: ['id' => '\d+'])]
-    #[IsGranted('ROLE_ADMIN')]
+    #[Route('/{id}', name: 'delete_node', methods: ['DELETE'], requirements: ['id' => '\d+'])]
+    #[IsGranted('ROLE_ORGANIZATION')]
     public function delete(int $id): JsonResponse
     {
         $node = $this->mapNodeService->findNode($id);
@@ -194,6 +198,12 @@ class MapNodeController extends AbstractController
             );
         }
 
+        // Horizontal authorization check
+        $accessError = $this->securityService->checkNodeAccess($this->getUser(), $node);
+        if ($accessError) {
+            return $accessError;
+        }
+
         $removedEdgeIds = $this->mapNodeService->deleteNode($node);
 
         return new JsonResponse([
@@ -202,7 +212,6 @@ class MapNodeController extends AbstractController
         ], 200);
     }
 
-    // helper function
     private function serializeNode(MapNode $node): array
     {
         return [

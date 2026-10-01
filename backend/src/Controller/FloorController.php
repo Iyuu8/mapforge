@@ -5,6 +5,7 @@ namespace App\Controller;
 use App\Service\FloorService;
 use App\Service\BuildingService;
 use App\Service\ErrorFormatter;
+use App\Service\OrganizationSecurityService;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -17,18 +18,17 @@ class FloorController extends AbstractController
     public function __construct(
         private FloorService $floorService,
         private BuildingService $buildingService,
-        private ErrorFormatter $errorFormatter
+        private ErrorFormatter $errorFormatter,
+        private OrganizationSecurityService $securityService,
     ) {}
 
     /**
      * POST /api/floors
-     * Admin only.
+     * Authorized: Super Admin or Organization Account.
      * Body: { "buildingId": int, "name": string, "floorNumber": int, "geometry"?: array }
-     * FloorService::createFloor throws \DomainException on duplicate floorNumber
-     * within the same building (unique_building_floor constraint) -> 422.
      */
-    #[Route('', name:'create_floor',methods: ['POST'])]
-    #[IsGranted('ROLE_ADMIN')]
+    #[Route('', name: 'create_floor', methods: ['POST'])]
+    #[IsGranted('ROLE_ORGANIZATION')]
     public function create(Request $request): JsonResponse
     {
         $payload = json_decode($request->getContent(), true);
@@ -50,6 +50,12 @@ class FloorController extends AbstractController
                 $this->errorFormatter->formatError('Building not found.', 'NOT_FOUND', 404),
                 404
             );
+        }
+
+        // Horizontal authorization check
+        $accessError = $this->securityService->checkBuildingAccess($this->getUser(), $building);
+        if ($accessError) {
+            return $accessError;
         }
 
         try {
@@ -74,7 +80,7 @@ class FloorController extends AbstractController
      * Admin: always visible.
      * Public/user: only if the parent building is PUBLISHED.
      */
-    #[Route('/{id}', name:'get_floor_by_id',methods: ['GET'], requirements: ['id' => '\d+'])]
+    #[Route('/{id}', name: 'get_floor_by_id', methods: ['GET'], requirements: ['id' => '\d+'])]
     public function getOne(int $id): JsonResponse
     {
         $floor = $this->floorService->findFloor($id);
@@ -86,8 +92,11 @@ class FloorController extends AbstractController
             );
         }
 
+        $user = $this->getUser();
+        $canEdit = $this->securityService->canEditFloor($user, $floor);
         $isPublished = $floor->getBuilding()->getStatus() === 'PUBLISHED';
-        if (!$this->isGranted('ROLE_ADMIN') && !$isPublished) {
+
+        if (!$canEdit && !$isPublished) {
             return new JsonResponse(
                 $this->errorFormatter->formatError('Floor not found.', 'NOT_FOUND', 404),
                 404
@@ -99,11 +108,9 @@ class FloorController extends AbstractController
 
     /**
      * PUT /api/floors/{id}
-     * Admin only. Not in the endpoint table explicitly but FloorService::updateFloor
-     * already exists and the editor (plan 13) needs it for renames/geometry edits.
      */
-    #[Route('/{id}', name:'edit_floor',methods: ['PUT'], requirements: ['id' => '\d+'])]
-    #[IsGranted('ROLE_ADMIN')]
+    #[Route('/{id}', name: 'edit_floor', methods: ['PUT'], requirements: ['id' => '\d+'])]
+    #[IsGranted('ROLE_ORGANIZATION')]
     public function update(int $id, Request $request): JsonResponse
     {
         $floor = $this->floorService->findFloor($id);
@@ -112,6 +119,12 @@ class FloorController extends AbstractController
                 $this->errorFormatter->formatError('Floor not found.', 'NOT_FOUND', 404),
                 404
             );
+        }
+
+        // Horizontal authorization check
+        $accessError = $this->securityService->checkFloorAccess($this->getUser(), $floor);
+        if ($accessError) {
+            return $accessError;
         }
 
         $payload = json_decode($request->getContent(), true) ?? [];
@@ -130,19 +143,24 @@ class FloorController extends AbstractController
 
     /**
      * DELETE /api/floors/{id}
-     * Admin only. Deletes a floor and its associated geometry/nodes (handled by Doctrine cascades or FloorService).
      */
     #[Route('/{id}', name: 'delete_floor', methods: ['DELETE'], requirements: ['id' => '\d+'])]
-    #[IsGranted('ROLE_ADMIN')]
+    #[IsGranted('ROLE_ORGANIZATION')]
     public function delete(int $id): JsonResponse
     {
         $floor = $this->floorService->findFloor($id);
-        
+
         if (!$floor) {
             return new JsonResponse(
                 $this->errorFormatter->formatError('Floor not found.', 'NOT_FOUND', 404),
                 404
             );
+        }
+
+        // Horizontal authorization check
+        $accessError = $this->securityService->checkFloorAccess($this->getUser(), $floor);
+        if ($accessError) {
+            return $accessError;
         }
 
         try {
@@ -160,7 +178,7 @@ class FloorController extends AbstractController
 
         return new JsonResponse(null, 204);
     }
-    // helper function
+
     private function serializeFloor(\App\Entity\Floor $floor): array
     {
         return [

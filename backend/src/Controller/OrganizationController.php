@@ -2,67 +2,77 @@
 
 namespace App\Controller;
 
-use App\Entity\Organization;
 use App\Entity\Building;
+use App\Entity\Organization;
 use App\Service\BuildingService;
-use App\Service\PublishService;
 use App\Service\ErrorFormatter;
+use App\Service\OrganizationSecurityService;
+use App\Service\PublishService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
-use Symfony\Component\Security\Http\Attribute\IsGranted;
-use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\HttpFoundation\Response;
-
+use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Component\Security\Http\Attribute\IsGranted;
 
 #[Route('/api/organizations')]
 class OrganizationController extends AbstractController
 {
-    // NOTE: There is no OrganizationService yet (only BuildingService, FloorService, etc.
-    // were provided). CRUD here is done directly through the EntityManager to respect
-    // "no fake logic" but this SHOULD be extracted into an OrganizationService later
-    // to match the architecture rule "services own domain operations".
     public function __construct(
         private EntityManagerInterface $em,
         private BuildingService $buildingService,
         private PublishService $publishService,
         private ErrorFormatter $errorFormatter,
+        private OrganizationSecurityService $securityService,
     ) {}
 
     /**
      * GET /api/organizations
-     * Admin: sees all organizations.
-     * Public/user: sees all organizations too (organizations themselves aren't
-     * DRAFT/PUBLISHED - only Buildings are). Filtering of draft content happens
-     * one level down, on the /buildings sub-resource.
+     * Lists organizations. Public viewers see all public maps.
+     * Enriched with canEdit and ownership flags for horizontal authorization.
      */
-    #[Route('', name:'get_origanizations',methods: ['GET'])]
+    #[Route('', name: 'get_origanizations', methods: ['GET'])]
     public function list(): JsonResponse
     {
         $organizations = $this->em->getRepository(Organization::class)->findAll();
-        $isAdmin = $this->isGranted('ROLE_ADMIN');
-        $data = array_map(fn(Organization $o) => [
-            'id' => $o->getId(),
-            'name' => $o->getName(),
-            'description' => $o->getDescription(),
-            'createdAt' => $o->getCreatedAt()->format(\DateTime::ATOM),
-            'canvasWidth'=>$o->getCanvasWidth(),
-            'canvasHeight'=>$o->getCanvasHeight(),
-            'buildingCount'=>$o->getBuildings()->count(),
-            'tracingImages'=>$isAdmin? $o->getTracingImages() : null,
-        ], $organizations);
+        $user = $this->getUser();
+
+        $data = array_map(function (Organization $o) use ($user) {
+            $canEdit = $this->securityService->canEditOrganization($user, $o);
+            $owner = $o->getOwner();
+            $isOwner = $user && $owner && $owner->getId() === $user->getId();
+
+            return [
+                'id' => $o->getId(),
+                'name' => $o->getName(),
+                'description' => $o->getDescription(),
+                'address' => $o->getAddress(),
+                'phone' => $o->getPhone(),
+                'createdAt' => $o->getCreatedAt()?->format(\DateTime::ATOM),
+                'canvasWidth' => $o->getCanvasWidth(),
+                'canvasHeight' => $o->getCanvasHeight(),
+                'buildingCount' => $o->getBuildings()->count(),
+                'tracingImages' => $canEdit ? $o->getTracingImages() : null,
+                'canEdit' => $canEdit,
+                'isOwner' => $isOwner,
+                'owner' => $owner ? [
+                    'id' => $owner->getId(),
+                    'email' => $owner->getEmail(),
+                ] : null,
+            ];
+        }, $organizations);
 
         return new JsonResponse($data);
     }
 
     /**
      * POST /api/organizations
-     * Admin only.
-     * Body: { "name": string, "description"?: string }
+     * Authorized: Super Admin or Organization Account.
+     * Body: { "name": string, "description"?: string, "address"?: string, "phone"?: string }
      */
     #[Route('', name: 'create_organization', methods: ['POST'])]
-    #[IsGranted('ROLE_ADMIN')]
+    #[IsGranted('ROLE_ORGANIZATION')]
     public function create(Request $request): JsonResponse
     {
         $payload = json_decode($request->getContent(), true);
@@ -75,21 +85,25 @@ class OrganizationController extends AbstractController
         }
 
         $now = new \DateTimeImmutable();
+        $user = $this->getUser();
 
-        // Create Organization = map
+        // Create Organization
         $org = new Organization();
         $org->setName($payload['name']);
         $org->setDescription($payload['description'] ?? null);
-        $org->setCanvasHeight($payload['canvasHeight']?? 6000);
-        $org->setCanvasWidth($payload['canvasWidth']?? 8000);
+        $org->setAddress($payload['address'] ?? null);
+        $org->setPhone($payload['phone'] ?? null);
+        $org->setCanvasHeight($payload['canvasHeight'] ?? 6000);
+        $org->setCanvasWidth($payload['canvasWidth'] ?? 8000);
         $org->setCreatedAt($now);
         $org->setUpdatedAt($now);
-        
+        if ($user) {
+            $org->setOwner($user);
+        }
 
         $this->em->persist($org);
 
-        // auto create Default Campus (Outdoor Section), the outdoor section is not some sort of container, it is conceptually just a building that links other buildings together, it is possible to add floors to it, define nodes ... etc, because defining the shortest path is possible among buildings it is therefore possible to use this as way to link buildings together
-        // notice that no floor was created here, the outdoor section was created without floor, but it should have a floor, creating the floor will be left for the user to do, hence the fact that he should create a floor for the outdoor section should be obvious
+        // Auto-create Default Campus (Outdoor Section)
         $campus = new Building();
         $campus->setName('Default Campus');
         $campus->setDescription('Outdoor section and main campus grounds for ' . $org->getName());
@@ -99,18 +113,20 @@ class OrganizationController extends AbstractController
         $campus->setUpdatedAt($now);
 
         $this->em->persist($campus);
-
-        // 3. Flush transactions
         $this->em->flush();
 
         return new JsonResponse([
             'id' => $org->getId(),
             'name' => $org->getName(),
             'description' => $org->getDescription(),
+            'address' => $org->getAddress(),
+            'phone' => $org->getPhone(),
             'createdAt' => $org->getCreatedAt()->format(\DateTime::ATOM),
-            'canvasWidth'=>$org->getCanvasWidth(),
-            'canvasHeight'=>$org->getCanvasHeight(),
-            'tracingImages'=>$org->getTracingImages(),
+            'canvasWidth' => $org->getCanvasWidth(),
+            'canvasHeight' => $org->getCanvasHeight(),
+            'tracingImages' => $org->getTracingImages(),
+            'canEdit' => true,
+            'isOwner' => true,
             'defaultCampus' => [
                 'id' => $campus->getId(),
                 'name' => $campus->getName(),
@@ -118,13 +134,17 @@ class OrganizationController extends AbstractController
                 'createdAt' => $campus->getCreatedAt()->format(\DateTime::ATOM),
                 'geometry' => $campus->getGeometry(),
                 'description' => $campus->getDescription(),
-                'color'=>$campus->getColor(),
+                'color' => $campus->getColor(),
             ],
         ], 201);
     }
 
-    #[Route('/{id}', name: 'edit_organization', methods: ['PUT','PATCH'])]
-    #[IsGranted('ROLE_ADMIN')]
+    /**
+     * PUT/PATCH /api/organizations/{id}
+     * Checks horizontal authorization: only owner or super admin can edit.
+     */
+    #[Route('/{id}', name: 'edit_organization', methods: ['PUT', 'PATCH'], requirements: ['id' => '\d+'])]
+    #[IsGranted('ROLE_ORGANIZATION')]
     public function update(Request $request, int $id): JsonResponse
     {
         $payload = json_decode($request->getContent(), true);
@@ -137,42 +157,39 @@ class OrganizationController extends AbstractController
         }
 
         $org = $this->em->getRepository(Organization::class)->find($id);
-        if(!$org) return $this->json($this->errorFormatter->formatError("Organization not found.","NOT_FOUND",Response::HTTP_NOT_FOUND),Response::HTTP_NOT_FOUND);
+        if (!$org) {
+            return $this->json($this->errorFormatter->formatError('Organization not found.', 'NOT_FOUND', Response::HTTP_NOT_FOUND), Response::HTTP_NOT_FOUND);
+        }
 
-        $campus = $this->em->getRepository(Building::class)->findOneBy(['name'=>'Default Campus', 'organization'=>$org]);
+        // Horizontal authorization check
+        $accessError = $this->securityService->checkOrganizationAccess($this->getUser(), $org);
+        if ($accessError) {
+            return $accessError;
+        }
 
-        /** @var Organization $org */
-        if($org->getName() && isset($payload['name']) && !trim($payload['name'])) return $this->json($this->errorFormatter->formatError('you cannot remove the name of the organization','BAD_REQUEST',Response::HTTP_BAD_REQUEST),Response::HTTP_BAD_REQUEST);
-        if(isset($payload['name'])) $org->setName($payload['name']);
+        $campus = $this->em->getRepository(Building::class)->findOneBy(['name' => 'Default Campus', 'organization' => $org]);
 
-        $description = trim($payload['description']?? '');
-        if($description) $org->setDescription($description);
+        if ($org->getName() && isset($payload['name']) && !trim($payload['name'])) {
+            return $this->json($this->errorFormatter->formatError('you cannot remove the name of the organization', 'BAD_REQUEST', Response::HTTP_BAD_REQUEST), Response::HTTP_BAD_REQUEST);
+        }
+        if (isset($payload['name'])) {
+            $org->setName($payload['name']);
+        }
 
-        // not possible to change the canvas height and width, possible to add images and change change their order ( z index ), the strcuture in the request is bellow
-        /*
-            [
-                {
-                    "id": "a1b2c3d4",
-                    "imagePath": "/uploads/blueprint1.png",
-                    "x": 150.5,
-                    "y": 200.0,
-                    "width": 1024,
-                    "height": 768,
-                    "zIndex": 1
-                },
-                {
-                    "id": "a1b2c3d5",
-                    "imagePath": "/uploads/blueprint2.png",
-                    "x": 150.5,
-                    "y": 200.0,
-                    "width": 1024,
-                    "height": 768,
-                    "zIndex": 1
-                },
-            ] 
-        */
-        $tracingImages = $payload['tracingImages']?? null;
-        if($tracingImages && is_array($tracingImages)) $org->setTracingImages($tracingImages);
+        if (array_key_exists('description', $payload)) {
+            $org->setDescription(trim((string) $payload['description']) ?: null);
+        }
+        if (array_key_exists('address', $payload)) {
+            $org->setAddress(trim((string) $payload['address']) ?: null);
+        }
+        if (array_key_exists('phone', $payload)) {
+            $org->setPhone(trim((string) $payload['phone']) ?: null);
+        }
+
+        $tracingImages = $payload['tracingImages'] ?? null;
+        if ($tracingImages && is_array($tracingImages)) {
+            $org->setTracingImages($tracingImages);
+        }
 
         $now = new \DateTimeImmutable();
         $org->setUpdatedAt($now);
@@ -183,10 +200,14 @@ class OrganizationController extends AbstractController
             'id' => $org->getId(),
             'name' => $org->getName(),
             'description' => $org->getDescription(),
+            'address' => $org->getAddress(),
+            'phone' => $org->getPhone(),
             'createdAt' => $org->getCreatedAt()->format(\DateTime::ATOM),
-            'canvasWidth'=>$org->getCanvasWidth(),
-            'canvasHeight'=>$org->getCanvasHeight(),
-            'tracingImages'=>$org->getTracingImages(),
+            'canvasWidth' => $org->getCanvasWidth(),
+            'canvasHeight' => $org->getCanvasHeight(),
+            'tracingImages' => $org->getTracingImages(),
+            'canEdit' => true,
+            'isOwner' => true,
             'defaultCampus' => [
                 'id' => $campus?->getId(),
                 'name' => $campus?->getName(),
@@ -194,16 +215,15 @@ class OrganizationController extends AbstractController
                 'createdAt' => $campus?->getCreatedAt()->format(\DateTime::ATOM),
                 'geometry' => $campus?->getGeometry(),
                 'description' => $campus?->getDescription(),
-                'color'=>$campus?->getColor(),
+                'color' => $campus?->getColor(),
             ],
-        ], 201);
+        ], 200);
     }
-
 
     /**
      * GET /api/organizations/{id}
      */
-    #[Route('/{id}', name:'get_organization_by_id',methods: ['GET'], requirements: ['id' => '\d+'])]
+    #[Route('/{id}', name: 'get_organization_by_id', methods: ['GET'], requirements: ['id' => '\d+'])]
     public function getOne(int $id): JsonResponse
     {
         $org = $this->em->getRepository(Organization::class)->find($id);
@@ -215,25 +235,36 @@ class OrganizationController extends AbstractController
             );
         }
 
-        $isAdmin = $this->isGranted('ROLE_ADMIN');
+        $user = $this->getUser();
+        $canEdit = $this->securityService->canEditOrganization($user, $org);
+        $owner = $org->getOwner();
+        $isOwner = $user && $owner && $owner->getId() === $user->getId();
+
         return new JsonResponse([
             'id' => $org->getId(),
             'name' => $org->getName(),
             'description' => $org->getDescription(),
+            'address' => $org->getAddress(),
+            'phone' => $org->getPhone(),
             'createdAt' => $org->getCreatedAt()->format(\DateTime::ATOM),
-            'canvasWidth'=>$org->getCanvasWidth(),
-            'canvasHeight'=>$org->getCanvasHeight(),
-            'tracingImages'=>$isAdmin? $org->getTracingImages() : null,
+            'canvasWidth' => $org->getCanvasWidth(),
+            'canvasHeight' => $org->getCanvasHeight(),
+            'tracingImages' => $canEdit ? $org->getTracingImages() : null,
+            'canEdit' => $canEdit,
+            'isOwner' => $isOwner,
+            'owner' => $owner ? [
+                'id' => $owner->getId(),
+                'email' => $owner->getEmail(),
+            ] : null,
         ]);
     }
 
     /**
      * DELETE /api/organizations/{id}
-     * Admin only. Deletes the full organization tree explicitly:
-     * Organization -> Building -> Floor -> MapNode -> MapEdge.
+     * Checks horizontal authorization: only owner or super admin can delete.
      */
-    #[Route('/{id}', name:'remove_organization',methods: ['DELETE'], requirements: ['id' => '\d+'])]
-    #[IsGranted('ROLE_ADMIN')]
+    #[Route('/{id}', name: 'remove_organization', methods: ['DELETE'], requirements: ['id' => '\d+'])]
+    #[IsGranted('ROLE_ORGANIZATION')]
     public function delete(int $id): JsonResponse
     {
         $org = $this->em->getRepository(Organization::class)->find($id);
@@ -243,6 +274,12 @@ class OrganizationController extends AbstractController
                 $this->errorFormatter->formatError('Organization not found.', 'NOT_FOUND', 404),
                 404
             );
+        }
+
+        // Horizontal authorization check
+        $accessError = $this->securityService->checkOrganizationAccess($this->getUser(), $org);
+        if ($accessError) {
+            return $accessError;
         }
 
         try {
@@ -269,10 +306,10 @@ class OrganizationController extends AbstractController
 
     /**
      * GET /api/organizations/{id}/buildings
-     * Admin: all buildings (DRAFT + PUBLISHED).
+     * Admin/Owner: all buildings (DRAFT + PUBLISHED).
      * Public/user: PUBLISHED only.
      */
-    #[Route('/{id}/buildings', name:'get_buildings_organization',methods: ['GET'], requirements: ['id' => '\d+'])]
+    #[Route('/{id}/buildings', name: 'get_buildings_organization', methods: ['GET'], requirements: ['id' => '\d+'])]
     public function buildings(int $id): JsonResponse
     {
         $org = $this->em->getRepository(Organization::class)->find($id);
@@ -284,9 +321,10 @@ class OrganizationController extends AbstractController
             );
         }
 
-        $isAdmin = $this->isGranted('ROLE_ADMIN');
+        $user = $this->getUser();
+        $canEdit = $this->securityService->canEditOrganization($user, $org);
 
-        $buildings = $isAdmin
+        $buildings = $canEdit
             ? $this->em->getRepository(Building::class)->findBy(['organization' => $org])
             : $this->em->getRepository(Building::class)->findBy(['organization' => $org, 'status' => 'PUBLISHED']);
 
@@ -294,11 +332,11 @@ class OrganizationController extends AbstractController
             'id' => $b->getId(),
             'name' => $b->getName(),
             'status' => $b->getStatus(),
-            'color'=> $b->getColor(),
-            'description'=>$b->getDescription(),
-            'geometry'=>$b->getGeometry(),
-            'createdAt'=>$b->getCreatedAt(),
-            'updatedAt'=>$b->getUpdatedAt()
+            'color' => $b->getColor(),
+            'description' => $b->getDescription(),
+            'geometry' => $b->getGeometry(),
+            'createdAt' => $b->getCreatedAt(),
+            'updatedAt' => $b->getUpdatedAt(),
         ], $buildings);
 
         return new JsonResponse($data);
@@ -306,13 +344,10 @@ class OrganizationController extends AbstractController
 
     /**
      * POST /api/organizations/{id}/publish
-     * Admin only. Publishes every building belonging to the organization.
-     * Uses PublishService (which internally runs MapValidationService) per building,
-     * so validation rules stay centralized - no duplicated logic here.
-     * Returns a per-building result so the admin can see which ones failed and why.
+     * Checks horizontal authorization: only owner or super admin can publish.
      */
-    #[Route('/{id}/publish', name:'publish_all_buildings_in_organization',methods: ['POST'], requirements: ['id' => '\d+'])]
-    #[IsGranted('ROLE_ADMIN')]
+    #[Route('/{id}/publish', name: 'publish_all_buildings_in_organization', methods: ['POST'], requirements: ['id' => '\d+'])]
+    #[IsGranted('ROLE_ORGANIZATION')]
     public function publishAll(int $id): JsonResponse
     {
         $org = $this->em->getRepository(Organization::class)->find($id);
@@ -322,6 +357,12 @@ class OrganizationController extends AbstractController
                 $this->errorFormatter->formatError('Organization not found.', 'NOT_FOUND', 404),
                 404
             );
+        }
+
+        // Horizontal authorization check
+        $accessError = $this->securityService->checkOrganizationAccess($this->getUser(), $org);
+        if ($accessError) {
+            return $accessError;
         }
 
         $buildings = $this->em->getRepository(Building::class)->findBy(['organization' => $org]);
