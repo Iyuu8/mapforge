@@ -23,7 +23,9 @@ import {
   Search,
   Trash2,
   Undo2,
+  ShieldAlert,
 } from 'lucide-react';
+import AppTopbar from '../components/common/AppTopbar';
 import BrandLogo from '../components/common/BrandLogo';
 import { Circle, Group, Image as KonvaImage, Label, Layer, Line, Rect, Stage, Tag, Text } from 'react-konva';
 import * as editorApi from '../api/editorApi';
@@ -2155,6 +2157,16 @@ export default function AdminEditorPage() {
         organizationApi.getOrganization(organizationId),
         mapApi.getOrganizationMap(organizationId),
       ]);
+
+      if (orgPayload.canEdit === false) {
+        setError({
+          code: 'HORIZONTAL_ACCESS_DENIED',
+          message: 'Access Denied: You do not have permission to modify this organization\'s maps. Each organization account can only manage their own campus.',
+          isPermissionDenied: true,
+        });
+        setLoading(false);
+        return;
+      }
       const normalized = normalizeMapPayload(mapPayload);
       setOrganization(orgPayload);
       setBuildings(normalized.buildings);
@@ -3111,6 +3123,36 @@ export default function AdminEditorPage() {
 
   const selectedSourceNode = connectSourceId ? nodeIndex.get(Number(connectSourceId)) : null;
   const isSaving = savingCount > 0;
+
+  if (error?.isPermissionDenied) {
+    return (
+      <div className="appFrame editorFrame">
+        <AppTopbar />
+        <main className="editorAccessDeniedPage">
+          <div className="accessDeniedCard">
+            <div className="accessDeniedIconWrapper">
+              <ShieldAlert size={48} />
+            </div>
+            <h2>Horizontal Access Denied</h2>
+            <p>
+              {error.message || "You do not have permission to modify this organization's maps."}
+            </p>
+            <div className="accessDeniedNotice">
+              MapForge enforces organization isolation. Each organization account can only author and modify their own campus floorplans.
+            </div>
+            <div className="accessDeniedActions">
+              <button className="button buttonSecondary" onClick={() => navigate('/maps')}>
+                Browse Public Maps
+              </button>
+              <button className="button buttonPrimary" onClick={() => navigate('/admin')}>
+                Return to Your Workspace
+              </button>
+            </div>
+          </div>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="appFrame editorFrame">

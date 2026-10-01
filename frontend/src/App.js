@@ -6,6 +6,7 @@ import LoginPage from './pages/LoginPage';
 import AdminEditorPage from './pages/AdminEditorPage';
 import OrganizationPickerPage from './pages/OrganizationPickerPage';
 import PublicViewerPage from './pages/PublicViewerPage';
+import SuperAdminDashboardPage from './pages/SuperAdminDashboardPage';
 import ProtectedRoute from './routing/ProtectedRoute';
 
 function App() {
@@ -15,6 +16,14 @@ function App() {
         <Routes>
           <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<LoginPage />} />
+          <Route
+            path="/super-admin"
+            element={
+              <ProtectedRoute requireSuperAdmin>
+                <SuperAdminDashboardPage />
+              </ProtectedRoute>
+            }
+          />
           <Route
             path="/maps"
             element={<OrganizationPickerPage mode="public" />}

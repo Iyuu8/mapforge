@@ -14,3 +14,27 @@ export async function logout() {
   const response = await apiClient.post('/api/logout', {});
   return response.data;
 }
+
+export async function registerUser(email, password) {
+  const response = await apiClient.post('/api/register', { email, password });
+  return response.data;
+}
+
+export async function requestOrganization({
+  organizationName,
+  address,
+  phone,
+  email,
+  password,
+  description,
+}) {
+  const response = await apiClient.post('/api/register/organization', {
+    organizationName,
+    address,
+    phone,
+    email,
+    password,
+    description,
+  });
+  return response.data;
+}

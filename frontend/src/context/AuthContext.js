@@ -6,13 +6,19 @@ export const AuthContext = createContext(null);
 function readUser(payload) {
   const data = payload?.data || payload?.user || payload || {};
   const roles = data.roles || ['ROLE_GUEST'];
+  const isSuperAdmin = roles.includes('ROLE_SUPER_ADMIN');
+  const isOrganization = roles.includes('ROLE_ORGANIZATION');
+  const isAdmin = isSuperAdmin || isOrganization || roles.includes('ROLE_ADMIN');
 
   return {
     id: data.id || null,
     email: data.email || null,
     roles,
     isAuthenticated: Boolean(data.id || data.isAuthenticated),
-    isAdmin: roles.includes('ROLE_ADMIN'),
+    isSuperAdmin,
+    isOrganization,
+    isAdmin,
+    ownedOrganizations: data.ownedOrganizations || [],
   };
 }
 
@@ -47,6 +53,25 @@ export function AuthProvider({ children }) {
     [refreshUser]
   );
 
+  const registerUser = useCallback(
+    async ({ email, password }) => {
+      setAuthError(null);
+      const res = await authApi.registerUser(email, password);
+      await authApi.login(email, password);
+      await refreshUser();
+      return res;
+    },
+    [refreshUser]
+  );
+
+  const requestOrganization = useCallback(
+    async (formData) => {
+      setAuthError(null);
+      return await authApi.requestOrganization(formData);
+    },
+    []
+  );
+
   const signOut = useCallback(async () => {
     setAuthError(null);
     try {
@@ -64,12 +89,17 @@ export function AuthProvider({ children }) {
       booting,
       authError,
       isAuthenticated: user.isAuthenticated,
+      isSuperAdmin: user.isSuperAdmin,
+      isOrganization: user.isOrganization,
       isAdmin: user.isAdmin,
+      ownedOrganizations: user.ownedOrganizations,
       signIn,
+      registerUser,
+      requestOrganization,
       signOut,
       refreshUser,
     }),
-    [authError, booting, refreshUser, signIn, signOut, user]
+    [authError, booting, refreshUser, registerUser, requestOrganization, signIn, signOut, user]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

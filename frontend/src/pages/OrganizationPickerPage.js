@@ -15,6 +15,7 @@ import {
   Plus,
   Rocket,
   Search,
+  ShieldCheck,
   Trash2,
   Wrench,
   X,
@@ -28,12 +29,14 @@ import useAuth from '../hooks/useAuth';
 const emptyNewOrg = {
   name: '',
   description: '',
+  address: '',
+  phone: '',
   canvasWidth: 8000,
   canvasHeight: 6000,
 };
 
 export default function OrganizationPickerPage({ mode }) {
-  const { isAdmin, isAuthenticated, user, signOut } = useAuth();
+  const { isAdmin, isSuperAdmin, isOrganization, isAuthenticated, user, signOut } = useAuth();
   const location = useLocation();
   const [organizations, setOrganizations] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -104,6 +107,8 @@ export default function OrganizationPickerPage({ mode }) {
       await organizationApi.createOrganization({
         name: newOrg.name,
         description: newOrg.description || null,
+        address: newOrg.address || null,
+        phone: newOrg.phone || null,
         canvasWidth: Number(newOrg.canvasWidth),
         canvasHeight: Number(newOrg.canvasHeight),
       });
@@ -196,6 +201,16 @@ export default function OrganizationPickerPage({ mode }) {
               <Map size={18} />
               <span>Browse Maps</span>
             </Link>
+            {isSuperAdmin && (
+              <Link
+                to="/super-admin"
+                className="dashboardNavItem superAdminSidebarItem"
+                onClick={() => setMobileSidebarOpen(false)}
+              >
+                <ShieldCheck size={18} />
+                <span>Super Admin</span>
+              </Link>
+            )}
             {isAdmin && (
               <Link
                 to="/admin"
@@ -203,7 +218,7 @@ export default function OrganizationPickerPage({ mode }) {
                 onClick={() => setMobileSidebarOpen(false)}
               >
                 <Wrench size={18} />
-                <span>Admin Workspace</span>
+                <span>{isOrganization && !isSuperAdmin ? 'My Studio' : 'Admin Workspace'}</span>
               </Link>
             )}
           </nav>
@@ -321,6 +336,24 @@ export default function OrganizationPickerPage({ mode }) {
               />
             </div>
           </section>
+
+          {isSuperAdmin && (
+            <div className="superAdminPortalBanner">
+              <div className="saPortalBannerLeft">
+                <div className="saPortalIcon">
+                  <ShieldCheck size={22} color="#6366f1" />
+                </div>
+                <div>
+                  <h4>Super Admin Access Control Active</h4>
+                  <p>Validate pending organization creation requests and manage platform accounts.</p>
+                </div>
+              </div>
+              <Link to="/super-admin" className="button buttonPrimary saPortalBannerBtn">
+                <span>Manage Organization Requests</span>
+                <ArrowRight size={16} />
+              </Link>
+            </div>
+          )}
 
           {/* Metric Summary Cards */}
           <section className="dashboardMetricsGrid" aria-label="Overview statistics">
@@ -460,9 +493,13 @@ export default function OrganizationPickerPage({ mode }) {
                   <div className="modernOrgBody">
                     <div className="modernOrgTitleRow">
                       <h3 className="modernOrgName">{organization.name}</h3>
-                      <span className="orgStatusBadge campusBadge">
-                        Campus
-                      </span>
+                      {organization.isOwner ? (
+                        <span className="orgStatusBadge ownerBadge">Your Organization</span>
+                      ) : organization.canEdit === false && isAdminMode ? (
+                        <span className="orgStatusBadge otherOrgBadge">Other Organization</span>
+                      ) : (
+                        <span className="orgStatusBadge campusBadge">Campus</span>
+                      )}
                     </div>
 
                     <div className="modernOrgMetaRow">
@@ -471,6 +508,14 @@ export default function OrganizationPickerPage({ mode }) {
                       </span>
                       <span className="metaDot">&bull;</span>
                       <span className="modernOrgMetaItem">1 campus map</span>
+                      {organization.address && (
+                        <>
+                          <span className="metaDot">&bull;</span>
+                          <span className="modernOrgMetaItem orgAddressMeta">
+                            {organization.address}
+                          </span>
+                        </>
+                      )}
                       {organization.description && (
                         <>
                           <span className="metaDot">&bull;</span>
@@ -513,7 +558,7 @@ export default function OrganizationPickerPage({ mode }) {
                           <Compass size={16} />
                           <span>Explore Map</span>
                         </Link>
-                        {isAdmin && (
+                        {isAdmin && organization.canEdit !== false && (
                           <Link
                             className="button buttonGhost editorOrgBtn"
                             to={`/admin/maps/${organization.id}`}
@@ -524,6 +569,18 @@ export default function OrganizationPickerPage({ mode }) {
                           </Link>
                         )}
                       </>
+                    ) : organization.canEdit === false ? (
+                      <div className="readOnlyOrgActionRow">
+                        <Link
+                          className="button buttonSecondary exploreOrgBtn"
+                          to={`/maps/${organization.id}`}
+                          title="Explore campus map (view-only)"
+                        >
+                          <Eye size={15} />
+                          <span>View Map</span>
+                        </Link>
+                        <span className="readOnlyActionHint">No edit access</span>
+                      </div>
                     ) : (
                       <>
                         <Link
@@ -611,6 +668,27 @@ export default function OrganizationPickerPage({ mode }) {
                   value={newOrg.description}
                   onChange={(e) => setNewOrg({ ...newOrg, description: e.target.value })}
                 />
+              </div>
+
+              <div className="formRow">
+                <div className="formField">
+                  <label htmlFor="new-org-address">Address</label>
+                  <input
+                    id="new-org-address"
+                    placeholder="e.g. 123 Campus Way"
+                    value={newOrg.address}
+                    onChange={(e) => setNewOrg({ ...newOrg, address: e.target.value })}
+                  />
+                </div>
+                <div className="formField">
+                  <label htmlFor="new-org-phone">Phone Number</label>
+                  <input
+                    id="new-org-phone"
+                    placeholder="e.g. +1 (555) 019-2831"
+                    value={newOrg.phone}
+                    onChange={(e) => setNewOrg({ ...newOrg, phone: e.target.value })}
+                  />
+                </div>
               </div>
 
               <div className="formRow">

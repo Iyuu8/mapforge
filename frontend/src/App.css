@@ -3855,3 +3855,1158 @@ button, input, select, textarea {
   pointer-events: none;
 }
 
+/* ==========================================================================
+   AUTH TABS & ORGANIZATION APPLICATION STYLES
+   ========================================================================== */
+.authTabsContainer {
+  display: flex;
+  background: #f1f5f9;
+  border-radius: 12px;
+  padding: 4px;
+  gap: 4px;
+  margin-bottom: 24px;
+  border: 1px solid #e2e8f0;
+}
+
+.authTabButton {
+  flex: 1;
+  padding: 9px 12px;
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: #64748b;
+  border: none;
+  background: transparent;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  white-space: nowrap;
+  text-align: center;
+}
+
+.authTabButton:hover {
+  color: #0f172a;
+}
+
+.authTabButton.active {
+  background: #ffffff;
+  color: #0f172a;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.authTextarea {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  font-size: 0.88rem;
+  font-family: inherit;
+  color: #0f172a;
+  background: #ffffff;
+  resize: vertical;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.authTextarea:focus {
+  outline: none;
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+}
+
+.orgRequirementNotice {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 10px;
+  color: #166534;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  margin-bottom: 16px;
+}
+
+.orgRequirementNotice svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: #15803d;
+}
+
+.orgSuccessCard {
+  text-align: center;
+  padding: 24px 16px;
+  animation: fadeIn 0.25s ease;
+}
+
+.orgSuccessIcon {
+  margin-bottom: 16px;
+}
+
+.orgSuccessCard h3 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin-bottom: 8px;
+}
+
+.orgSuccessText {
+  color: #475569;
+  font-size: 0.92rem;
+  line-height: 1.5;
+  margin-bottom: 20px;
+}
+
+.orgNoticeBadge {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 14px 16px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  color: #334155;
+  font-size: 0.84rem;
+  line-height: 1.45;
+  text-align: left;
+  margin-bottom: 24px;
+}
+
+.orgNoticeBadge svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: #64748b;
+}
+
+.authInlineSwitchBtn {
+  background: none;
+  border: none;
+  padding: 0;
+  color: #6366f1;
+  font-size: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.authInlineSwitchBtn:hover {
+  color: #4f46e5;
+}
+
+.demoSuperAdminBtn {
+  border-color: rgba(99, 102, 241, 0.4) !important;
+  color: #4338ca !important;
+}
+
+.demoSuperAdminBtn:hover {
+  background: #eef2ff !important;
+}
+
+/* ==========================================================================
+   TOPBAR & ROLE TAG STYLES
+   ========================================================================== */
+.userAccountInfoBlock {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.roleTag {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.roleTag.superAdminTag {
+  background: #e0e7ff;
+  color: #4338ca;
+  border: 1px solid #c7d2fe;
+}
+
+.roleTag.orgTag {
+  background: #e0f2fe;
+  color: #0369a1;
+  border: 1px solid #bae6fd;
+}
+
+.superAdminNavLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #6366f1 !important;
+  font-weight: 700;
+}
+
+.guestNavButtons {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.topbarRegisterOrgBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.84rem;
+  padding: 6px 14px;
+}
+
+/* ==========================================================================
+   SUPER ADMIN PORTAL BANNER IN WORKSPACE
+   ========================================================================== */
+.superAdminPortalBanner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 20px;
+  margin-bottom: 24px;
+  background: linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%);
+  border: 1px solid #ddd6fe;
+  border-radius: 16px;
+  box-shadow: 0 4px 14px rgba(99, 102, 241, 0.08);
+}
+
+.saPortalBannerLeft {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.saPortalIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.12);
+  flex-shrink: 0;
+}
+
+.saPortalBannerLeft h4 {
+  margin: 0 0 2px 0;
+  font-size: 0.98rem;
+  font-weight: 700;
+  color: #3730a3;
+}
+
+.saPortalBannerLeft p {
+  margin: 0;
+  font-size: 0.82rem;
+  color: #6b21a8;
+}
+
+.saPortalBannerBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #6366f1;
+  white-space: nowrap;
+  font-size: 0.86rem;
+  padding: 8px 16px;
+  border-radius: 10px;
+}
+
+.saPortalBannerBtn:hover {
+  background: #4f46e5;
+}
+
+/* ==========================================================================
+   ORGANIZATION PICKER CARD BADGES & HORIZONTAL AUTH
+   ========================================================================== */
+.orgStatusBadge.ownerBadge {
+  background: #ecfdf5;
+  color: #047857;
+  border: 1px solid #a7f3d0;
+}
+
+.orgStatusBadge.otherOrgBadge {
+  background: #f1f5f9;
+  color: #64748b;
+  border: 1px solid #cbd5e1;
+}
+
+.orgAddressMeta {
+  color: #64748b;
+  font-size: 0.78rem;
+}
+
+.readOnlyOrgActionRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.readOnlyActionHint {
+  font-size: 0.76rem;
+  color: #94a3b8;
+  font-style: italic;
+  white-space: nowrap;
+}
+
+.superAdminSidebarItem {
+  color: #a5b4fc !important;
+}
+
+.superAdminSidebarItem:hover {
+  color: #ffffff !important;
+}
+
+/* ==========================================================================
+   SUPER ADMIN DASHBOARD PAGE STYLES
+   ========================================================================== */
+.superAdminLayout {
+  min-height: 100vh;
+  background: #0f172a;
+  color: #f8fafc;
+}
+
+.superAdminMain {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 32px 24px 60px;
+}
+
+.superAdminHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 32px;
+}
+
+.superAdminRoleBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  background: rgba(99, 102, 241, 0.18);
+  border: 1px solid rgba(99, 102, 241, 0.45);
+  border-radius: 9999px;
+  color: #a5b4fc;
+  font-size: 0.76rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 12px;
+}
+
+.superAdminHeaderLeft h1 {
+  font-size: 1.85rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  margin: 0 0 8px 0;
+  color: #ffffff;
+}
+
+.superAdminHeaderLeft p {
+  color: #94a3b8;
+  font-size: 0.94rem;
+  max-width: 680px;
+  margin: 0;
+  line-height: 1.5;
+}
+
+.superAdminRefreshBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(30, 41, 59, 0.8);
+  border-color: rgba(255, 255, 255, 0.12);
+  color: #e2e8f0;
+}
+
+.spinIcon {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+/* Toast Message */
+.superAdminToast {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 18px;
+  border-radius: 12px;
+  margin-bottom: 24px;
+  font-size: 0.88rem;
+  font-weight: 500;
+}
+
+.superAdminToast.success {
+  background: rgba(16, 185, 129, 0.15);
+  border: 1px solid rgba(16, 185, 129, 0.4);
+  color: #6ee7b7;
+}
+
+.superAdminToast.warning {
+  background: rgba(245, 158, 11, 0.15);
+  border: 1px solid rgba(245, 158, 11, 0.4);
+  color: #fcd34d;
+}
+
+.toastCloseBtn {
+  background: none;
+  border: none;
+  color: inherit;
+  font-size: 1.25rem;
+  cursor: pointer;
+  margin-left: auto;
+  opacity: 0.7;
+}
+
+.toastCloseBtn:hover {
+  opacity: 1;
+}
+
+/* Stats Grid */
+.superAdminStatsGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 32px;
+}
+
+@media (max-width: 900px) {
+  .superAdminStatsGrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 540px) {
+  .superAdminStatsGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.superAdminStatCard {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 20px;
+  background: #1e293b;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.superAdminStatCard:hover {
+  border-color: rgba(99, 102, 241, 0.4);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+}
+
+.superAdminStatCard.hasPending {
+  border-color: rgba(245, 158, 11, 0.45);
+  background: linear-gradient(135deg, #1e293b 0%, rgba(245, 158, 11, 0.08) 100%);
+}
+
+.statIconWrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  flex-shrink: 0;
+}
+
+.statIconWrapper.pendingIcon {
+  background: rgba(245, 158, 11, 0.15);
+  color: #f59e0b;
+}
+
+.statIconWrapper.approvedIcon {
+  background: rgba(16, 185, 129, 0.15);
+  color: #10b981;
+}
+
+.statIconWrapper.rejectedIcon {
+  background: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+}
+
+.statIconWrapper.orgIcon {
+  background: rgba(99, 102, 241, 0.15);
+  color: #818cf8;
+}
+
+.statContent {
+  display: flex;
+  flex-direction: column;
+}
+
+.statLabel {
+  font-size: 0.8rem;
+  color: #94a3b8;
+  margin-bottom: 4px;
+}
+
+.statValueRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.statValue {
+  font-size: 1.6rem;
+  font-weight: 800;
+  color: #ffffff;
+  line-height: 1;
+}
+
+.statPillPulse {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #f59e0b;
+  background: rgba(245, 158, 11, 0.18);
+  padding: 2px 7px;
+  border-radius: 9999px;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+/* Controls Toolbar */
+.superAdminControlsBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 24px;
+}
+
+.superAdminTabs {
+  display: flex;
+  gap: 6px;
+  background: #1e293b;
+  padding: 4px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.saTabBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border: none;
+  background: transparent;
+  color: #94a3b8;
+  font-size: 0.84rem;
+  font-weight: 600;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.saTabBtn:hover {
+  color: #ffffff;
+}
+
+.saTabBtn.active {
+  background: #334155;
+  color: #ffffff;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+}
+
+.saTabBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px 6px;
+  background: #f59e0b;
+  color: #000000;
+  font-size: 0.72rem;
+  font-weight: 800;
+  border-radius: 9999px;
+}
+
+.saSearchWrapper {
+  position: relative;
+  min-width: 280px;
+}
+
+.saSearchIcon {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #64748b;
+  pointer-events: none;
+}
+
+.saSearchInput {
+  width: 100%;
+  padding: 9px 34px 9px 38px;
+  background: #1e293b;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  color: #ffffff;
+  font-size: 0.86rem;
+  transition: border-color 0.15s ease;
+}
+
+.saSearchInput:focus {
+  outline: none;
+  border-color: #6366f1;
+}
+
+.saSearchClear {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: #64748b;
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+/* Requests List */
+.saRequestsList {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.saRequestCard {
+  background: #1e293b;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  padding: 20px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.saRequestCard:hover {
+  border-color: rgba(255, 255, 255, 0.16);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
+}
+
+.saRequestCard.pending {
+  border-left: 4px solid #f59e0b;
+}
+
+.saRequestCard.approved {
+  border-left: 4px solid #10b981;
+}
+
+.saRequestCard.rejected {
+  border-left: 4px solid #ef4444;
+}
+
+.saRequestCardHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.saReqTitleBlock {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.saOrgAvatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  background: #334155;
+  color: #a5b4fc;
+  font-weight: 800;
+  font-size: 1.15rem;
+  border-radius: 10px;
+}
+
+.saOrgName {
+  margin: 0 0 2px 0;
+  font-size: 1.12rem;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.saReqDate {
+  font-size: 0.78rem;
+  color: #94a3b8;
+}
+
+.saStatusBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 9999px;
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.saStatusBadge.pending {
+  background: rgba(245, 158, 11, 0.15);
+  color: #fbbf24;
+  border: 1px solid rgba(245, 158, 11, 0.35);
+}
+
+.saStatusBadge.approved {
+  background: rgba(16, 185, 129, 0.15);
+  color: #34d399;
+  border: 1px solid rgba(16, 185, 129, 0.35);
+}
+
+.saStatusBadge.rejected {
+  background: rgba(239, 68, 68, 0.15);
+  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.35);
+}
+
+.saRequestDetailsGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  background: rgba(15, 23, 42, 0.45);
+  padding: 14px 16px;
+  border-radius: 12px;
+  margin-bottom: 16px;
+}
+
+@media (max-width: 768px) {
+  .saRequestDetailsGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.saDetailItem {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.saDetailItem svg {
+  color: #818cf8;
+  margin-top: 3px;
+  flex-shrink: 0;
+}
+
+.saDetailLabel {
+  display: block;
+  font-size: 0.72rem;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 2px;
+}
+
+.saDetailValue {
+  font-size: 0.88rem;
+  color: #f1f5f9;
+  font-weight: 500;
+  word-break: break-all;
+}
+
+.saSpanTwo {
+  grid-column: span 1;
+}
+
+.saDescriptionBlock {
+  background: rgba(15, 23, 42, 0.3);
+  padding: 10px 14px;
+  border-radius: 8px;
+  margin-bottom: 16px;
+}
+
+.saDescriptionBlock p {
+  margin: 4px 0 0 0;
+  font-size: 0.84rem;
+  color: #cbd5e1;
+  line-height: 1.45;
+}
+
+.saRejectionNotice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  border-radius: 8px;
+  color: #fca5a5;
+  font-size: 0.84rem;
+  margin-bottom: 16px;
+}
+
+.saApprovedMetaBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 14px;
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  border-radius: 8px;
+  color: #a7f3d0;
+  font-size: 0.84rem;
+  margin-bottom: 16px;
+}
+
+.saViewMapLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #34d399;
+  font-weight: 600;
+  text-decoration: underline;
+}
+
+.saCardActions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.saApproveBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: #10b981 !important;
+  color: #ffffff !important;
+  border: none !important;
+}
+
+.saApproveBtn:hover {
+  background: #059669 !important;
+}
+
+.saRejectBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #f87171 !important;
+  border-color: rgba(239, 68, 68, 0.3) !important;
+}
+
+.saRejectBtn:hover {
+  background: rgba(239, 68, 68, 0.15) !important;
+}
+
+/* Empty State */
+.saEmptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  text-align: center;
+  background: #1e293b;
+  border-radius: 16px;
+  border: 1px dashed rgba(255, 255, 255, 0.15);
+}
+
+.saEmptyState h3 {
+  font-size: 1.15rem;
+  color: #f1f5f9;
+  margin: 14px 0 6px 0;
+}
+
+.saEmptyState p {
+  color: #94a3b8;
+  font-size: 0.88rem;
+  max-width: 400px;
+  margin: 0;
+}
+
+/* Organizations Directory Table */
+.saOrgsContainer {
+  background: #1e293b;
+  border-radius: 16px;
+  padding: 24px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.saOrgsHeader {
+  margin-bottom: 20px;
+}
+
+.saOrgsHeader h2 {
+  font-size: 1.25rem;
+  margin: 0 0 4px 0;
+  color: #ffffff;
+}
+
+.saOrgsHeader p {
+  color: #94a3b8;
+  font-size: 0.84rem;
+  margin: 0;
+}
+
+.saOrgsTableWrapper {
+  overflow-x: auto;
+}
+
+.saTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.86rem;
+  text-align: left;
+}
+
+.saTable th {
+  padding: 12px 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  color: #94a3b8;
+  font-weight: 600;
+}
+
+.saTable td {
+  padding: 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  color: #cbd5e1;
+}
+
+.saFontBold {
+  font-weight: 700;
+  color: #ffffff !important;
+}
+
+.saOwnerTag {
+  display: inline-flex;
+  padding: 3px 8px;
+  background: rgba(99, 102, 241, 0.15);
+  border: 1px solid rgba(99, 102, 241, 0.35);
+  border-radius: 6px;
+  color: #a5b4fc;
+  font-size: 0.78rem;
+  word-break: break-all;
+}
+
+.saUnassignedTag {
+  color: #64748b;
+  font-style: italic;
+  font-size: 0.78rem;
+}
+
+.saTextTruncate {
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.saTableActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.saTableBtn {
+  padding: 6px 12px !important;
+  font-size: 0.8rem !important;
+}
+
+/* Modals */
+.saModalOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(4px);
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  z-index: 1000;
+  animation: fadeIn 0.15s ease;
+}
+
+.saModalCard {
+  width: 100%;
+  max-width: 520px;
+  background: #1e293b;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 20px;
+  padding: 24px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+}
+
+.saModalHeader {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  margin-bottom: 20px;
+}
+
+.saModalIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  flex-shrink: 0;
+}
+
+.saModalIcon.approve {
+  background: rgba(16, 185, 129, 0.15);
+  color: #10b981;
+}
+
+.saModalIcon.reject {
+  background: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+}
+
+.saModalHeader h3 {
+  margin: 0 0 4px 0;
+  font-size: 1.15rem;
+  color: #ffffff;
+}
+
+.saModalHeader p {
+  margin: 0;
+  font-size: 0.82rem;
+  color: #94a3b8;
+}
+
+.saModalBody {
+  margin-bottom: 24px;
+  color: #cbd5e1;
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+
+.saModalList {
+  margin: 12px 0 0 0;
+  padding-left: 20px;
+}
+
+.saModalList li {
+  margin-bottom: 6px;
+}
+
+.saModalList code {
+  background: rgba(0, 0, 0, 0.3);
+  padding: 2px 6px;
+  border-radius: 4px;
+  color: #818cf8;
+}
+
+.saModalTextarea {
+  width: 100%;
+  padding: 10px 14px;
+  background: #0f172a;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 10px;
+  color: #ffffff;
+  font-family: inherit;
+  font-size: 0.88rem;
+  margin-top: 8px;
+  resize: vertical;
+}
+
+.saModalTextarea:focus {
+  outline: none;
+  border-color: #ef4444;
+}
+
+.saModalFooter {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.saDangerSolid {
+  background: #ef4444 !important;
+  color: #ffffff !important;
+  border: none !important;
+}
+
+.saDangerSolid:hover {
+  background: #dc2626 !important;
+}
+
+/* ==========================================================================
+   HORIZONTAL ACCESS DENIED SCREEN (IN EDITOR)
+   ========================================================================== */
+.editorAccessDeniedPage {
+  min-height: calc(100vh - 60px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  background: #0f172a;
+}
+
+.accessDeniedCard {
+  max-width: 520px;
+  background: #1e293b;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 20px;
+  padding: 36px 28px;
+  text-align: center;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+}
+
+.accessDeniedIconWrapper {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 72px;
+  height: 72px;
+  background: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+  border-radius: 20px;
+  margin-bottom: 20px;
+}
+
+.accessDeniedCard h2 {
+  font-size: 1.45rem;
+  font-weight: 800;
+  color: #ffffff;
+  margin: 0 0 10px 0;
+}
+
+.accessDeniedCard p {
+  font-size: 0.92rem;
+  color: #cbd5e1;
+  line-height: 1.5;
+  margin: 0 0 16px 0;
+}
+
+.accessDeniedNotice {
+  padding: 12px 14px;
+  background: rgba(15, 23, 42, 0.6);
+  border-radius: 10px;
+  font-size: 0.8rem;
+  color: #94a3b8;
+  margin-bottom: 24px;
+  line-height: 1.45;
+}
+
+.accessDeniedActions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+
+
